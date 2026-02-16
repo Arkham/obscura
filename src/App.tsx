@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { EditorView } from './components/editor/EditorView';
 import styles from './App.module.css';
 
 type View = 'catalog' | 'editor';
@@ -9,15 +10,13 @@ export default function App() {
   return (
     <div className={styles.app}>
       {view === 'catalog' ? (
-        <div>
+        <div className={styles.catalog}>
           <h1>Fiat Lux</h1>
+          <p>RAW Photo Editor</p>
           <button onClick={() => setView('editor')}>Open Editor</button>
         </div>
       ) : (
-        <div>
-          <button onClick={() => setView('catalog')}>&larr; Back</button>
-          <h1>Editor</h1>
-        </div>
+        <EditorView onBack={() => setView('catalog')} />
       )}
     </div>
   );

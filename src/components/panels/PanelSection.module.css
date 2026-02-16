@@ -1,0 +1,37 @@
+.section {
+  border-bottom: 1px solid var(--border, #404040);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  text-align: left;
+}
+
+.header:hover {
+  background: var(--bg-tertiary, #3d3d3d);
+}
+
+.chevron {
+  font-size: 8px;
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+
+.chevron[data-open="true"] {
+  transform: rotate(90deg);
+}
+
+.content {
+  padding: 4px 12px 8px;
+}
