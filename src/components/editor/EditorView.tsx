@@ -15,6 +15,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { createDefaultEdits } from '../../types/edits';
 import { createRawDecoder } from '../../raw/decoder';
 import { createRgbFloatTexture } from '../../engine/texture-utils';
+import { loadSidecar } from '../../io/sidecar';
 import type { ExportOptions } from '../../io/export';
 import { writeFile } from '../../io/filesystem';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -32,6 +33,8 @@ export function EditorView({ onBack }: EditorViewProps) {
   const dirHandle = useCatalogStore((s) => s.dirHandle);
   const resetAll = useEditStore((s) => s.resetAll);
   const edits = useEditStore((s) => s.edits);
+  const loadEdits = useEditStore((s) => s.loadEdits);
+  const setAutoSaveTarget = useEditStore((s) => s.setAutoSaveTarget);
   const notify = useNotificationStore((s) => s.notify);
 
   const [cropMode, setCropMode] = useState(false);
@@ -50,6 +53,22 @@ export function EditorView({ onBack }: EditorViewProps) {
     (async () => {
       setIsDecoding(true);
       try {
+        // Load saved edits from sidecar (if any) before decoding
+        let savedEdits: Partial<import('../../types/edits').EditState> | null = null;
+        if (dirHandle) {
+          try {
+            savedEdits = await loadSidecar(dirHandle, entry.name);
+          } catch {
+            // No sidecar or read error — use defaults
+          }
+        }
+        if (cancelled) return;
+
+        loadEdits(savedEdits ?? {});
+        if (dirHandle) {
+          setAutoSaveTarget(dirHandle, entry.name);
+        }
+
         const file = await entry.fileHandle.getFile();
         const buffer = await file.arrayBuffer();
 
@@ -64,7 +83,10 @@ export function EditorView({ onBack }: EditorViewProps) {
         const gl = pipeline.getGL();
         const tex = createRgbFloatTexture(gl, decoded.width, decoded.height, decoded.data);
         pipeline.setSourceTexture(tex, decoded.width, decoded.height);
-        pipeline.render(edits);
+
+        // Render with the loaded edits (now in store)
+        const currentEdits = useEditStore.getState().edits;
+        pipeline.render(currentEdits);
       } catch (err) {
         console.error(`Failed to decode ${entry.name}:`, err);
       } finally {
@@ -73,7 +95,7 @@ export function EditorView({ onBack }: EditorViewProps) {
     })();
 
     return () => { cancelled = true; };
-  }, [selectedIndex, entries]);
+  }, [selectedIndex, entries, dirHandle, loadEdits, setAutoSaveTarget]);
 
   const currentName = selectedIndex >= 0 && selectedIndex < entries.length
     ? entries[selectedIndex].name

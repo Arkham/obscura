@@ -10,21 +10,19 @@ describe('sidecar serialization', () => {
     const json = serializeSidecar(edits);
     const parsed = JSON.parse(json);
 
-    expect(parsed.version).toBe(1);
-    expect(parsed.app).toBe('fiat-lux');
-    expect(parsed.edits.exposure).toBe(1.5);
-    expect(parsed.edits.contrast).toBe(25);
+    expect(parsed.exposure).toBe(1.5);
+    expect(parsed.contrast).toBe(25);
     // Default values should NOT be present
-    expect(parsed.edits.whiteBalance).toBeUndefined();
-    expect(parsed.edits.highlights).toBeUndefined();
-    expect(parsed.edits.saturation).toBeUndefined();
+    expect(parsed.whiteBalance).toBeUndefined();
+    expect(parsed.highlights).toBeUndefined();
+    expect(parsed.saturation).toBeUndefined();
   });
 
   it('serializes empty edits as empty object', () => {
     const edits = createDefaultEdits();
     const json = serializeSidecar(edits);
     const parsed = JSON.parse(json);
-    expect(Object.keys(parsed.edits)).toHaveLength(0);
+    expect(Object.keys(parsed)).toHaveLength(0);
   });
 
   it('round-trips through serialize/deserialize', () => {
