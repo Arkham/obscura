@@ -113,6 +113,11 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
     isPanningRef.current = false;
   }, []);
 
+  const handleDoubleClick = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
   // Expose setImage to parent
   useImperativeHandle(ref, () => ({
     setImage: (texture: WebGLTexture, width: number, height: number) => {
@@ -139,6 +144,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onDoubleClick={handleDoubleClick}
     >
       <canvas ref={canvasRef} className={styles.canvas} style={canvasStyle} />
     </div>
