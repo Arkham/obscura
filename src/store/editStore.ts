@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { EditState, createDefaultEdits } from '../types/edits';
+import { type EditState, createDefaultEdits } from '../types/edits';
 
 interface EditStoreState {
   edits: EditState;
