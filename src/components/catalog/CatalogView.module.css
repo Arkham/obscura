@@ -43,6 +43,35 @@
   font-size: 14px;
 }
 
+.recentList {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.recentLabel {
+  font-size: 11px;
+  color: var(--text-secondary, #a0a0a0);
+  margin-bottom: 2px;
+}
+
+.recentItem {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #a0a0a0);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+
+.recentItem:hover {
+  color: var(--text-primary, #e0e0e0);
+  background: var(--bg-tertiary, #3d3d3d);
+}
+
 .loading {
   flex: 1;
   display: flex;
