@@ -346,6 +346,115 @@ export class RenderPipeline {
     return true;
   }
 
+  /**
+   * Render at an arbitrary resolution and read back pixels as ImageData.
+   * Used for full-resolution JPEG export.
+   */
+  renderToImageData(
+    texture: WebGLTexture,
+    width: number,
+    height: number,
+    edits: EditState,
+  ): ImageData {
+    const { gl } = this;
+
+    // Save current state
+    const savedSource = this.sourceTexture;
+    const savedW = this.imageWidth;
+    const savedH = this.imageHeight;
+    const savedFbA = this.fbA;
+    const savedFbB = this.fbB;
+    const savedFbTemp = this.fbTemp;
+
+    // Set up temporary full-res framebuffers
+    this.sourceTexture = texture;
+    this.imageWidth = width;
+    this.imageHeight = height;
+    this.fbA = createFramebuffer(gl, width, height);
+    this.fbB = createFramebuffer(gl, width, height);
+    this.fbTemp = createFramebuffer(gl, width, height);
+
+    // Run the full pipeline into fbA/fbB (render to the last FB, not screen)
+    this.updateCurveLuts(edits);
+
+    let current = this.fbA;
+    let alternate = this.fbB;
+
+    // 1. Main adjustment pass
+    gl.bindFramebuffer(gl.FRAMEBUFFER, current.framebuffer);
+    gl.viewport(0, 0, width, height);
+    gl.useProgram(this.mainProgram);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(gl.getUniformLocation(this.mainProgram, 'uSource'), 0);
+    this.setMainUniforms(edits);
+    this.drawFullscreen();
+
+    // 2-5: Effect passes
+    if (this.dehazePass(current.texture, alternate, edits)) {
+      [current, alternate] = [alternate, current];
+    }
+    if (Math.abs(edits.clarity) >= 0.5 || Math.abs(edits.texture) >= 0.5) {
+      this.blurPass(current.texture, alternate, width, height, 8.0);
+      const blurredTex = alternate.texture;
+      if (this.clarityPass(current.texture, blurredTex, alternate, edits)) {
+        [current, alternate] = [alternate, current];
+      }
+    }
+    if (edits.sharpening.amount >= 0.5) {
+      this.blurPass(current.texture, alternate, width, height, edits.sharpening.radius);
+      const blurredTex = alternate.texture;
+      if (this.sharpenPass(current.texture, blurredTex, alternate, edits)) {
+        [current, alternate] = [alternate, current];
+      }
+    }
+    if (this.denoisePass(current.texture, alternate, edits)) {
+      [current, alternate] = [alternate, current];
+    }
+    // Vignette to alternate (not screen)
+    if (Math.abs(edits.vignette.amount) >= 0.5) {
+      if (this.vignettePass(current.texture, alternate.framebuffer, width, height, edits)) {
+        [current, alternate] = [alternate, current];
+      }
+    }
+
+    // Read pixels from current framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, current.framebuffer);
+    gl.viewport(0, 0, width, height);
+
+    // Passthrough to convert float to 8-bit via sRGB display
+    // We read the float FB directly and the browser handles the readPixels conversion
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    // Flip vertically (WebGL reads bottom-up)
+    const rowSize = width * 4;
+    const flipped = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      const srcOffset = (height - 1 - y) * rowSize;
+      const dstOffset = y * rowSize;
+      flipped.set(pixels.subarray(srcOffset, srcOffset + rowSize), dstOffset);
+    }
+
+    // Clean up temporary framebuffers
+    gl.deleteFramebuffer(this.fbA.framebuffer);
+    gl.deleteTexture(this.fbA.texture);
+    gl.deleteFramebuffer(this.fbB.framebuffer);
+    gl.deleteTexture(this.fbB.texture);
+    gl.deleteFramebuffer(this.fbTemp.framebuffer);
+    gl.deleteTexture(this.fbTemp.texture);
+
+    // Restore saved state
+    this.sourceTexture = savedSource;
+    this.imageWidth = savedW;
+    this.imageHeight = savedH;
+    this.fbA = savedFbA;
+    this.fbB = savedFbB;
+    this.fbTemp = savedFbTemp;
+
+    return new ImageData(flipped, width, height);
+  }
+
   render(edits: EditState) {
     const { gl } = this;
     if (!this.sourceTexture || !this.fbA || !this.fbB) return;
