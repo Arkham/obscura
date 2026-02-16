@@ -2,6 +2,7 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import { Canvas, type CanvasHandle } from './Canvas';
 import { CropOverlay } from './CropOverlay';
 import { ExportDialog } from './ExportDialog';
+import { HistoryPanel } from './HistoryPanel';
 import { BasicPanel } from '../panels/BasicPanel';
 import { PresencePanel } from '../panels/PresencePanel';
 import { ToneCurvePanel } from '../panels/ToneCurvePanel';
@@ -150,6 +151,18 @@ export function EditorView({ onBack }: EditorViewProps) {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
+      // Undo/Redo
+      if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+        e.preventDefault();
+        useEditStore.getState().undo();
+        return;
+      }
+      if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+        e.preventDefault();
+        useEditStore.getState().redo();
+        return;
+      }
+
       switch (e.key) {
         case 'ArrowLeft':
           e.preventDefault();
@@ -257,6 +270,9 @@ export function EditorView({ onBack }: EditorViewProps) {
         </div>
       </div>
       <div className={styles.main}>
+        <div className={styles.leftSidebar}>
+          <HistoryPanel />
+        </div>
         <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
           <Canvas ref={canvasRef} cropMode={cropMode} />
           {isDecoding && (
