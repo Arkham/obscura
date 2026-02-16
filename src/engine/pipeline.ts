@@ -65,6 +65,9 @@ export class RenderPipeline {
   private fbB: { framebuffer: WebGLFramebuffer; texture: WebGLTexture } | null = null;
   private fbTemp: { framebuffer: WebGLFramebuffer; texture: WebGLTexture } | null = null;
 
+  // Viewport rect of the last rendered image (for overlay alignment)
+  _lastViewport = { x: 0, y: 0, w: 0, h: 0 };
+
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', {
       premultipliedAlpha: false,
@@ -211,6 +214,7 @@ export class RenderPipeline {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, source);
     gl.uniform1i(gl.getUniformLocation(this.passthroughProgram, 'uTexture'), 0);
+    gl.uniform4f(gl.getUniformLocation(this.passthroughProgram, 'uCropRect'), 0, 0, 1, 1);
     this.drawFullscreen();
   }
 
@@ -418,18 +422,30 @@ export class RenderPipeline {
       }
     }
 
-    // Read pixels from current framebuffer (RGBA16F requires FLOAT readback)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, current.framebuffer);
-    gl.viewport(0, 0, width, height);
+    // Apply crop: render cropped region into a smaller framebuffer
+    const crop = edits.crop ?? { x: 0, y: 0, width: 1, height: 1 };
+    const outW = Math.round(width * crop.width);
+    const outH = Math.round(height * crop.height);
+    const cropFb = createFramebuffer(gl, outW, outH);
 
-    const floatPixels = new Float32Array(width * height * 4);
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.FLOAT, floatPixels);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, cropFb.framebuffer);
+    gl.viewport(0, 0, outW, outH);
+    gl.useProgram(this.passthroughProgram);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, current.texture);
+    gl.uniform1i(gl.getUniformLocation(this.passthroughProgram, 'uTexture'), 0);
+    gl.uniform4f(gl.getUniformLocation(this.passthroughProgram, 'uCropRect'), crop.x, crop.y, crop.width, crop.height);
+    this.drawFullscreen();
+
+    // Read pixels from cropped framebuffer (RGBA16F requires FLOAT readback)
+    const floatPixels = new Float32Array(outW * outH * 4);
+    gl.readPixels(0, 0, outW, outH, gl.RGBA, gl.FLOAT, floatPixels);
 
     // Convert float [0,1] to uint8 [0,255] and flip vertically (WebGL reads bottom-up)
-    const rowSize = width * 4;
-    const flipped = new Uint8ClampedArray(width * height * 4);
-    for (let y = 0; y < height; y++) {
-      const srcRow = (height - 1 - y) * rowSize;
+    const rowSize = outW * 4;
+    const flipped = new Uint8ClampedArray(outW * outH * 4);
+    for (let y = 0; y < outH; y++) {
+      const srcRow = (outH - 1 - y) * rowSize;
       const dstRow = y * rowSize;
       for (let x = 0; x < rowSize; x++) {
         flipped[dstRow + x] = Math.round(Math.min(1, Math.max(0, floatPixels[srcRow + x])) * 255);
@@ -437,6 +453,8 @@ export class RenderPipeline {
     }
 
     // Clean up temporary framebuffers
+    gl.deleteFramebuffer(cropFb.framebuffer);
+    gl.deleteTexture(cropFb.texture);
     gl.deleteFramebuffer(this.fbA.framebuffer);
     gl.deleteTexture(this.fbA.texture);
     gl.deleteFramebuffer(this.fbB.framebuffer);
@@ -452,7 +470,7 @@ export class RenderPipeline {
     this.fbB = savedFbB;
     this.fbTemp = savedFbTemp;
 
-    return new ImageData(flipped, width, height);
+    return new ImageData(flipped, outW, outH);
   }
 
   render(edits: EditState) {
@@ -507,7 +525,10 @@ export class RenderPipeline {
     // 6. Final output → screen (letterboxed to preserve aspect ratio)
     const canvasW = gl.canvas.width;
     const canvasH = gl.canvas.height;
-    const imageAspect = this.imageWidth / this.imageHeight;
+    const crop = edits.crop ?? { x: 0, y: 0, width: 1, height: 1 };
+    const croppedW = this.imageWidth * crop.width;
+    const croppedH = this.imageHeight * crop.height;
+    const imageAspect = croppedW / croppedH;
     const canvasAspect = canvasW / canvasH;
 
     let viewW: number, viewH: number;
@@ -540,15 +561,18 @@ export class RenderPipeline {
       gl.uniform1f(gl.getUniformLocation(prog, 'uMidpoint'), edits.vignette.midpoint);
       gl.uniform1f(gl.getUniformLocation(prog, 'uRoundness'), edits.vignette.roundness);
       gl.uniform1f(gl.getUniformLocation(prog, 'uFeather'), edits.vignette.feather);
-      const crop = edits.crop ?? { x: 0, y: 0, width: 1, height: 1 };
       gl.uniform4f(gl.getUniformLocation(prog, 'uCropRect'), crop.x, crop.y, crop.width, crop.height);
     } else {
       gl.useProgram(this.passthroughProgram);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, current.texture);
       gl.uniform1i(gl.getUniformLocation(this.passthroughProgram, 'uTexture'), 0);
+      gl.uniform4f(gl.getUniformLocation(this.passthroughProgram, 'uCropRect'), crop.x, crop.y, crop.width, crop.height);
     }
     this.drawFullscreen();
+
+    // Store the last computed viewport for overlay alignment
+    this._lastViewport = { x: viewX, y: viewY, w: viewW, h: viewH };
   }
 
   destroy() {

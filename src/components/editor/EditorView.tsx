@@ -116,9 +116,10 @@ export function EditorView({ onBack }: EditorViewProps) {
     if (showBefore) {
       canvasRef.current?.getPipeline()?.render(createDefaultEdits());
     } else {
-      canvasRef.current?.getPipeline()?.render(edits);
+      const renderEdits = cropMode ? { ...edits, crop: null } : edits;
+      canvasRef.current?.getPipeline()?.render(renderEdits);
     }
-  }, [showBefore, edits]);
+  }, [showBefore, edits, cropMode]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -180,9 +181,45 @@ export function EditorView({ onBack }: EditorViewProps) {
     };
   }, [selectedIndex, entries.length, setSelectedIndex, resetAll, onBack, showExport, cropMode]);
 
-  // Get canvas dimensions for crop overlay
+  // Compute viewport rect for crop overlay directly from image/canvas dimensions
+  // (avoids stale _lastViewport when switching crop mode)
   const pipeline = canvasRef.current?.getPipeline();
-  const dims = pipeline?.getImageDimensions() ?? { width: 0, height: 0 };
+  const canvasEl = pipeline?.getGL().canvas as HTMLCanvasElement | undefined;
+  const dpr = window.devicePixelRatio || 1;
+  let flippedViewport = { x: 0, y: 0, w: 0, h: 0 };
+  if (pipeline && canvasEl) {
+    const { width: imgW, height: imgH } = pipeline.getImageDimensions();
+    const canvasW = canvasEl.width;
+    const canvasH = canvasEl.height;
+    if (imgW > 0 && imgH > 0 && canvasW > 0 && canvasH > 0) {
+      // In crop mode we show the full image; otherwise use cropped dimensions
+      const crop = (!cropMode && edits.crop) ? edits.crop : { x: 0, y: 0, width: 1, height: 1 };
+      const dispW = imgW * crop.width;
+      const dispH = imgH * crop.height;
+      const imgAspect = dispW / dispH;
+      const canvasAspect = canvasW / canvasH;
+
+      let viewW: number, viewH: number;
+      if (imgAspect > canvasAspect) {
+        viewW = canvasW;
+        viewH = Math.round(canvasW / imgAspect);
+      } else {
+        viewH = canvasH;
+        viewW = Math.round(canvasH * imgAspect);
+      }
+      const viewX = Math.round((canvasW - viewW) / 2);
+      const viewY = Math.round((canvasH - viewH) / 2);
+
+      // Convert WebGL pixels to CSS pixels and flip Y (WebGL is bottom-up)
+      const cssCH = canvasEl.clientHeight;
+      flippedViewport = {
+        x: viewX / dpr,
+        y: cssCH - (viewY + viewH) / dpr,
+        w: viewW / dpr,
+        h: viewH / dpr,
+      };
+    }
+  }
 
   return (
     <div className={styles.editor}>
@@ -199,15 +236,14 @@ export function EditorView({ onBack }: EditorViewProps) {
       </div>
       <div className={styles.main}>
         <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-          <Canvas ref={canvasRef} />
+          <Canvas ref={canvasRef} cropMode={cropMode} />
           {isDecoding && (
             <div className={styles.decodingOverlay}>Decoding RAW...</div>
           )}
           <CropOverlay
             active={cropMode}
             aspectRatio={aspectRatio}
-            canvasWidth={dims.width}
-            canvasHeight={dims.height}
+            viewport={flippedViewport}
             onDone={() => setCropMode(false)}
           />
         </div>
@@ -224,7 +260,10 @@ export function EditorView({ onBack }: EditorViewProps) {
               cropMode={cropMode}
               onToggleCropMode={handleToggleCropMode}
               aspectRatio={aspectRatio}
-              onSetAspectRatio={setAspectRatio}
+              onSetAspectRatio={(ratio) => {
+                setAspectRatio(ratio);
+                if (ratio !== null) setCropMode(true);
+              }}
             />
           </div>
         </div>

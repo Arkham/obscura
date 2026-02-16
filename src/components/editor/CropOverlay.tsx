@@ -5,8 +5,8 @@ import styles from './CropOverlay.module.css';
 interface CropOverlayProps {
   active: boolean;
   aspectRatio: number | null;
-  canvasWidth: number;
-  canvasHeight: number;
+  /** Viewport rect of the rendered image in CSS pixels, relative to container */
+  viewport: { x: number; y: number; w: number; h: number };
   onDone: () => void;
 }
 
@@ -20,110 +20,149 @@ interface Rect {
 type HandleType = 'tl' | 'tr' | 'bl' | 'br' | 'tm' | 'bm' | 'ml' | 'mr' | 'move';
 
 const HANDLE_SIZE = 8;
+const MIN_SIZE = 20;
 
 function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v));
 }
 
-export function CropOverlay({ active, aspectRatio, canvasWidth, canvasHeight, onDone }: CropOverlayProps) {
+export function CropOverlay({ active, aspectRatio, viewport, onDone }: CropOverlayProps) {
   const setParam = useEditStore((s) => s.setParam);
   const crop = useEditStore((s) => s.edits.crop);
 
-  const [rect, setRect] = useState<Rect>(() => {
-    if (crop) {
-      return { x: crop.x * canvasWidth, y: crop.y * canvasHeight, w: crop.width * canvasWidth, h: crop.height * canvasHeight };
+  // Convert normalized crop (texture Y-up) to pixel rect (CSS Y-down) within viewport
+  const cropToPixels = useCallback((c: { x: number; y: number; width: number; height: number } | null): Rect => {
+    if (c) {
+      return {
+        x: viewport.x + c.x * viewport.w,
+        y: viewport.y + (1 - c.y - c.height) * viewport.h,
+        w: c.width * viewport.w,
+        h: c.height * viewport.h,
+      };
     }
-    // Default to full image
-    return { x: 0, y: 0, w: canvasWidth, h: canvasHeight };
-  });
+    return { x: viewport.x, y: viewport.y, w: viewport.w, h: viewport.h };
+  }, [viewport]);
 
+  const [rect, setRect] = useState<Rect>(() => cropToPixels(crop));
   const [dragging, setDragging] = useState<HandleType | null>(null);
   const dragStartRef = useRef({ mouseX: 0, mouseY: 0, rect: { x: 0, y: 0, w: 0, h: 0 } });
-  const svgRef = useRef<SVGSVGElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Sync rect when canvas dimensions change
-  useEffect(() => {
-    if (!active) return;
-    if (crop) {
-      setRect({ x: crop.x * canvasWidth, y: crop.y * canvasHeight, w: crop.width * canvasWidth, h: crop.height * canvasHeight });
-    } else {
-      setRect({ x: 0, y: 0, w: canvasWidth, h: canvasHeight });
-    }
-  }, [canvasWidth, canvasHeight, active]);
-
-  const commitCrop = useCallback(() => {
-    if (canvasWidth === 0 || canvasHeight === 0) return;
+  // Convert pixel rect (CSS Y-down) to normalized crop (texture Y-up)
+  const commitCrop = useCallback((r: Rect) => {
+    if (viewport.w === 0 || viewport.h === 0) return;
+    const normX = (r.x - viewport.x) / viewport.w;
+    const normY = (r.y - viewport.y) / viewport.h;
+    const normW = r.w / viewport.w;
+    const normH = r.h / viewport.h;
     setParam('crop', {
-      x: rect.x / canvasWidth,
-      y: rect.y / canvasHeight,
-      width: rect.w / canvasWidth,
-      height: rect.h / canvasHeight,
+      x: normX,
+      y: 1 - normY - normH,
+      width: normW,
+      height: normH,
       rotation: 0,
     });
-  }, [rect, canvasWidth, canvasHeight, setParam]);
+  }, [viewport, setParam]);
 
-  const getSvgPos = useCallback((e: React.MouseEvent | MouseEvent) => {
-    const svg = svgRef.current;
-    if (!svg) return { x: 0, y: 0 };
-    const r = svg.getBoundingClientRect();
+  // Sync rect when viewport or crop changes (but not during drag)
+  // When entering crop mode, default to full viewport if no crop is set
+  useEffect(() => {
+    if (!active || dragging) return;
+    if (crop) {
+      setRect(cropToPixels(crop));
+    } else {
+      setRect({ x: viewport.x, y: viewport.y, w: viewport.w, h: viewport.h });
+    }
+  }, [viewport, active, crop, cropToPixels, dragging]);
+
+  // Adjust rect when aspect ratio changes — fit the largest rect of that ratio in the viewport
+  useEffect(() => {
+    if (!active || !aspectRatio || dragging) return;
+
+    let newW: number, newH: number;
+    if (viewport.w / viewport.h > aspectRatio) {
+      newH = viewport.h;
+      newW = newH * aspectRatio;
+    } else {
+      newW = viewport.w;
+      newH = newW / aspectRatio;
+    }
+    const newX = viewport.x + (viewport.w - newW) / 2;
+    const newY = viewport.y + (viewport.h - newH) / 2;
+    const newRect = { x: newX, y: newY, w: newW, h: newH };
+    setRect(newRect);
+    commitCrop(newRect);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aspectRatio]);
+
+  const getLocalPos = useCallback((e: React.MouseEvent | MouseEvent) => {
+    const el = overlayRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const r = el.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent, handle: HandleType) => {
     e.preventDefault();
     e.stopPropagation();
-    const pos = getSvgPos(e);
+    const pos = getLocalPos(e);
     dragStartRef.current = { mouseX: pos.x, mouseY: pos.y, rect: { ...rect } };
     setDragging(handle);
-  }, [getSvgPos, rect]);
+  }, [getLocalPos, rect]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!dragging) return;
-    const pos = getSvgPos(e);
+    const pos = getLocalPos(e);
     const dx = pos.x - dragStartRef.current.mouseX;
     const dy = pos.y - dragStartRef.current.mouseY;
     const s = dragStartRef.current.rect;
+
+    // Bounds: crop must stay within the viewport
+    const vx = viewport.x;
+    const vy = viewport.y;
+    const vr = viewport.x + viewport.w;
+    const vb = viewport.y + viewport.h;
 
     let newRect = { ...s };
 
     switch (dragging) {
       case 'move':
-        newRect.x = clamp(s.x + dx, 0, canvasWidth - s.w);
-        newRect.y = clamp(s.y + dy, 0, canvasHeight - s.h);
+        newRect.x = clamp(s.x + dx, vx, vr - s.w);
+        newRect.y = clamp(s.y + dy, vy, vb - s.h);
         break;
       case 'tl':
-        newRect.x = clamp(s.x + dx, 0, s.x + s.w - 20);
-        newRect.y = clamp(s.y + dy, 0, s.y + s.h - 20);
+        newRect.x = clamp(s.x + dx, vx, s.x + s.w - MIN_SIZE);
+        newRect.y = clamp(s.y + dy, vy, s.y + s.h - MIN_SIZE);
         newRect.w = s.x + s.w - newRect.x;
         newRect.h = s.y + s.h - newRect.y;
         break;
       case 'tr':
-        newRect.w = clamp(s.w + dx, 20, canvasWidth - s.x);
-        newRect.y = clamp(s.y + dy, 0, s.y + s.h - 20);
+        newRect.w = clamp(s.w + dx, MIN_SIZE, vr - s.x);
+        newRect.y = clamp(s.y + dy, vy, s.y + s.h - MIN_SIZE);
         newRect.h = s.y + s.h - newRect.y;
         break;
       case 'bl':
-        newRect.x = clamp(s.x + dx, 0, s.x + s.w - 20);
+        newRect.x = clamp(s.x + dx, vx, s.x + s.w - MIN_SIZE);
         newRect.w = s.x + s.w - newRect.x;
-        newRect.h = clamp(s.h + dy, 20, canvasHeight - s.y);
+        newRect.h = clamp(s.h + dy, MIN_SIZE, vb - s.y);
         break;
       case 'br':
-        newRect.w = clamp(s.w + dx, 20, canvasWidth - s.x);
-        newRect.h = clamp(s.h + dy, 20, canvasHeight - s.y);
+        newRect.w = clamp(s.w + dx, MIN_SIZE, vr - s.x);
+        newRect.h = clamp(s.h + dy, MIN_SIZE, vb - s.y);
         break;
       case 'tm':
-        newRect.y = clamp(s.y + dy, 0, s.y + s.h - 20);
+        newRect.y = clamp(s.y + dy, vy, s.y + s.h - MIN_SIZE);
         newRect.h = s.y + s.h - newRect.y;
         break;
       case 'bm':
-        newRect.h = clamp(s.h + dy, 20, canvasHeight - s.y);
+        newRect.h = clamp(s.h + dy, MIN_SIZE, vb - s.y);
         break;
       case 'ml':
-        newRect.x = clamp(s.x + dx, 0, s.x + s.w - 20);
+        newRect.x = clamp(s.x + dx, vx, s.x + s.w - MIN_SIZE);
         newRect.w = s.x + s.w - newRect.x;
         break;
       case 'mr':
-        newRect.w = clamp(s.w + dx, 20, canvasWidth - s.x);
+        newRect.w = clamp(s.w + dx, MIN_SIZE, vr - s.x);
         break;
     }
 
@@ -134,21 +173,21 @@ export function CropOverlay({ active, aspectRatio, canvasWidth, canvasHeight, on
       } else {
         newRect.h = newRect.w / aspectRatio;
       }
-      newRect.w = Math.min(newRect.w, canvasWidth - newRect.x);
-      newRect.h = Math.min(newRect.h, canvasHeight - newRect.y);
+      newRect.w = Math.min(newRect.w, vr - newRect.x);
+      newRect.h = Math.min(newRect.h, vb - newRect.y);
     }
 
     setRect(newRect);
-  }, [dragging, getSvgPos, canvasWidth, canvasHeight, aspectRatio]);
+  }, [dragging, getLocalPos, viewport, aspectRatio]);
 
   const handleMouseUp = useCallback(() => {
     if (dragging) {
-      commitCrop();
+      commitCrop(rect);
       setDragging(null);
     }
-  }, [dragging, commitCrop]);
+  }, [dragging, commitCrop, rect]);
 
-  if (!active) return null;
+  if (!active || viewport.w === 0 || viewport.h === 0) return null;
 
   const { x, y, w, h } = rect;
   const handles: Array<{ type: HandleType; cx: number; cy: number }> = [
@@ -163,60 +202,42 @@ export function CropOverlay({ active, aspectRatio, canvasWidth, canvasHeight, on
   ];
 
   return (
-    <div className={styles.overlay} data-active={active}>
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+    <div
+      ref={overlayRef}
+      className={styles.overlay}
+      data-active={active}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      {/* Dark mask outside crop */}
+      <div className={styles.darkMask} style={{ top: 0, left: 0, right: 0, height: y }} />
+      <div className={styles.darkMask} style={{ top: y + h, left: 0, right: 0, bottom: 0 }} />
+      <div className={styles.darkMask} style={{ top: y, left: 0, width: x, height: h }} />
+      <div className={styles.darkMask} style={{ top: y, left: x + w, right: 0, height: h }} />
+
+      {/* Crop rectangle — drag to move */}
+      <div
+        className={styles.cropRect}
+        style={{ left: x, top: y, width: w, height: h, cursor: 'move' }}
+        onMouseDown={(e) => handleMouseDown(e, 'move')}
       >
-        {/* Dark mask outside crop */}
-        <defs>
-          <mask id="cropMask">
-            <rect width={canvasWidth} height={canvasHeight} fill="white" />
-            <rect x={x} y={y} width={w} height={h} fill="black" />
-          </mask>
-        </defs>
-        <rect
-          width={canvasWidth}
-          height={canvasHeight}
-          className={styles.darkMask}
-          mask="url(#cropMask)"
-        />
-
-        {/* Crop rectangle — drag to move */}
-        <rect
-          x={x}
-          y={y}
-          width={w}
-          height={h}
-          className={styles.cropRect}
-          style={{ cursor: 'move' }}
-          onMouseDown={(e) => handleMouseDown(e, 'move')}
-        />
-
         {/* Rule of thirds grid */}
-        {[1 / 3, 2 / 3].map((t) => (
-          <g key={t}>
-            <line x1={x + w * t} y1={y} x2={x + w * t} y2={y + h} className={styles.gridLine} />
-            <line x1={x} y1={y + h * t} x2={x + w} y2={y + h * t} className={styles.gridLine} />
-          </g>
-        ))}
+        <div className={styles.gridLineH} style={{ top: '33.33%' }} />
+        <div className={styles.gridLineH} style={{ top: '66.67%' }} />
+        <div className={styles.gridLineV} style={{ left: '33.33%' }} />
+        <div className={styles.gridLineV} style={{ left: '66.67%' }} />
+      </div>
 
-        {/* Resize handles */}
-        {handles.map(({ type, cx, cy }) => (
-          <rect
-            key={type}
-            x={cx - HANDLE_SIZE / 2}
-            y={cy - HANDLE_SIZE / 2}
-            width={HANDLE_SIZE}
-            height={HANDLE_SIZE}
-            className={styles.handle}
-            onMouseDown={(e) => handleMouseDown(e, type)}
-          />
-        ))}
-      </svg>
+      {/* Resize handles */}
+      {handles.map(({ type, cx, cy }) => (
+        <div
+          key={type}
+          className={styles.handle}
+          style={{ left: cx - HANDLE_SIZE / 2, top: cy - HANDLE_SIZE / 2, width: HANDLE_SIZE, height: HANDLE_SIZE }}
+          onMouseDown={(e) => handleMouseDown(e, type)}
+        />
+      ))}
     </div>
   );
 }

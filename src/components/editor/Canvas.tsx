@@ -8,7 +8,11 @@ export interface CanvasHandle {
   getPipeline: () => RenderPipeline | null;
 }
 
-export const Canvas = forwardRef<CanvasHandle>(function Canvas(_props, ref) {
+interface CanvasProps {
+  cropMode?: boolean;
+}
+
+export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cropMode }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pipelineRef = useRef<RenderPipeline | null>(null);
@@ -37,10 +41,14 @@ export const Canvas = forwardRef<CanvasHandle>(function Canvas(_props, ref) {
     };
   }, []);
 
-  // Re-render when edits change
+  // Re-render when edits change (skip crop when in crop mode to show full image)
   useEffect(() => {
-    pipelineRef.current?.render(edits);
-  }, [edits]);
+    if (cropMode) {
+      pipelineRef.current?.render({ ...edits, crop: null });
+    } else {
+      pipelineRef.current?.render(edits);
+    }
+  }, [edits, cropMode]);
 
   // Handle resize
   useEffect(() => {
@@ -56,13 +64,14 @@ export const Canvas = forwardRef<CanvasHandle>(function Canvas(_props, ref) {
         canvas.height = Math.round(height * dpr);
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
-        pipelineRef.current?.render(edits);
+        const renderEdits = cropMode ? { ...edits, crop: null } : edits;
+        pipelineRef.current?.render(renderEdits);
       }
     });
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, [edits]);
+  }, [edits, cropMode]);
 
   // Zoom via scroll wheel (native listener to allow preventDefault on non-passive event)
   useEffect(() => {
