@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef, useState } from 'react';
 import { RenderPipeline } from '../../engine/pipeline';
+import { updateHistogram } from '../../engine/histogram';
 import { useEditStore } from '../../store/editStore';
 import styles from './Canvas.module.css';
 
@@ -43,11 +44,14 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
 
   // Re-render when edits change (skip crop when in crop mode to show full image)
   useEffect(() => {
+    const p = pipelineRef.current;
+    if (!p) return;
     if (cropMode) {
-      pipelineRef.current?.render({ ...edits, crop: null });
+      p.render({ ...edits, crop: null });
     } else {
-      pipelineRef.current?.render(edits);
+      p.render(edits);
     }
+    updateHistogram(p.getGL(), p._lastViewport);
   }, [edits, cropMode]);
 
   // Handle resize
@@ -66,6 +70,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
         canvas.style.height = `${height}px`;
         const renderEdits = cropMode ? { ...edits, crop: null } : edits;
         pipelineRef.current?.render(renderEdits);
+        if (pipelineRef.current) {
+          updateHistogram(pipelineRef.current.getGL(), pipelineRef.current._lastViewport);
+        }
       }
     });
 
@@ -109,8 +116,11 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
   // Expose setImage to parent
   useImperativeHandle(ref, () => ({
     setImage: (texture: WebGLTexture, width: number, height: number) => {
-      pipelineRef.current?.setSourceTexture(texture, width, height);
-      pipelineRef.current?.render(edits);
+      const p = pipelineRef.current;
+      if (!p) return;
+      p.setSourceTexture(texture, width, height);
+      p.render(edits);
+      updateHistogram(p.getGL(), p._lastViewport);
     },
     getPipeline: () => pipelineRef.current,
   }), [edits]);

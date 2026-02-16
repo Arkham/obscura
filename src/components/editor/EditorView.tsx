@@ -11,12 +11,15 @@ import { ColorGradingPanel } from '../panels/ColorGradingPanel';
 import { DetailPanel } from '../panels/DetailPanel';
 import { EffectsPanel } from '../panels/EffectsPanel';
 import { CropPanel } from '../panels/CropPanel';
+import { HistogramPanel } from '../panels/HistogramPanel';
+import { MetadataPanel } from '../panels/MetadataPanel';
 import { useEditStore } from '../../store/editStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { createDefaultEdits } from '../../types/edits';
 import { createRawDecoder } from '../../raw/decoder';
 import { createRgbFloatTexture } from '../../engine/texture-utils';
 import { loadSidecar, loadHistory } from '../../io/sidecar';
+import { extractMetadata, type ImageMetadata } from '../../raw/metadata';
 import type { ExportOptions } from '../../io/export';
 import { writeFile } from '../../io/filesystem';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -43,6 +46,7 @@ export function EditorView({ onBack }: EditorViewProps) {
   const [showExport, setShowExport] = useState(false);
   const [showBefore, setShowBefore] = useState(false);
   const [isDecoding, setIsDecoding] = useState(false);
+  const [metadata, setMetadata] = useState<ImageMetadata | null>(null);
 
   // Load and decode the selected RAW file into the WebGL pipeline
   useEffect(() => {
@@ -53,6 +57,7 @@ export function EditorView({ onBack }: EditorViewProps) {
 
     (async () => {
       setIsDecoding(true);
+      setMetadata(null);
       try {
         // Load saved edits and history from sidecar (if any) before decoding
         let savedEdits: Partial<import('../../types/edits').EditState> | null = null;
@@ -74,6 +79,10 @@ export function EditorView({ onBack }: EditorViewProps) {
 
         const file = await entry.fileHandle.getFile();
         const buffer = await file.arrayBuffer();
+
+        if (!cancelled) {
+          setMetadata(extractMetadata(buffer));
+        }
 
         const decoder = createRawDecoder();
         const decoded = await decoder.decode(buffer, true); // halfSize for preview
@@ -289,6 +298,8 @@ export function EditorView({ onBack }: EditorViewProps) {
         </div>
         <div className={styles.sidebar}>
           <div className={styles.panelScroll}>
+            <HistogramPanel />
+            <MetadataPanel metadata={metadata} />
             <BasicPanel />
             <PresencePanel />
             <ToneCurvePanel />

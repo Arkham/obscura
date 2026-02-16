@@ -1,0 +1,21 @@
+.info {
+  font-size: 11px;
+  color: var(--text-secondary, #a0a0a0);
+  line-height: 1.6;
+}
+
+.camera {
+  display: block;
+  color: var(--text-primary, #e0e0e0);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.specs {
+  display: block;
+}
+
+.separator {
+  margin: 0 4px;
+  opacity: 0.5;
+}
