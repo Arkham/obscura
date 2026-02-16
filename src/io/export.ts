@@ -38,26 +38,39 @@ export async function exportJpeg(
   });
 }
 
-function addBorder(imageData: ImageData, options: ExportOptions): HTMLCanvasElement {
+/** Calculate output dimensions after adding border */
+export function calcBorderDimensions(
+  imgWidth: number,
+  imgHeight: number,
+  options: ExportOptions,
+): { width: number; height: number; borderPx: number } {
+  if (options.border === 'none' || options.borderWidth === 0) {
+    return { width: imgWidth, height: imgHeight, borderPx: 0 };
+  }
+  const shorter = Math.min(imgWidth, imgHeight);
+  const borderPx = Math.round(shorter * options.borderWidth * 0.01);
+  return {
+    width: imgWidth + borderPx * 2,
+    height: imgHeight + borderPx * 2,
+    borderPx,
+  };
+}
+
+export function addBorder(imageData: ImageData, options: ExportOptions): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
+  const { width, height, borderPx } = calcBorderDimensions(imageData.width, imageData.height, options);
 
-  if (options.border === 'none' || options.borderWidth === 0) {
-    canvas.width = imageData.width;
-    canvas.height = imageData.height;
+  canvas.width = width;
+  canvas.height = height;
+
+  if (borderPx > 0) {
+    ctx.fillStyle = options.border === 'white' ? '#ffffff' : '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.putImageData(imageData, borderPx, borderPx);
+  } else {
     ctx.putImageData(imageData, 0, 0);
-    return canvas;
   }
-
-  const shorter = Math.min(imageData.width, imageData.height);
-  const borderPx = Math.round(shorter * options.borderWidth * 0.01);
-
-  canvas.width = imageData.width + borderPx * 2;
-  canvas.height = imageData.height + borderPx * 2;
-
-  ctx.fillStyle = options.border === 'white' ? '#ffffff' : '#000000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.putImageData(imageData, borderPx, borderPx);
 
   return canvas;
 }
