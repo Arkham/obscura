@@ -2,6 +2,9 @@ import { useRef, useCallback } from 'react';
 import { Canvas, type CanvasHandle } from './Canvas';
 import { BasicPanel } from '../panels/BasicPanel';
 import { PresencePanel } from '../panels/PresencePanel';
+import { ToneCurvePanel } from '../panels/ToneCurvePanel';
+import { HslPanel } from '../panels/HslPanel';
+import { ColorGradingPanel } from '../panels/ColorGradingPanel';
 import { useEditStore } from '../../store/editStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import styles from './EditorView.module.css';
@@ -44,6 +47,9 @@ export function EditorView({ onBack }: EditorViewProps) {
           <div className={styles.panelScroll}>
             <BasicPanel />
             <PresencePanel />
+            <ToneCurvePanel />
+            <HslPanel />
+            <ColorGradingPanel />
           </div>
         </div>
       </div>
