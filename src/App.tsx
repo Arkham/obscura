@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { CatalogView } from './components/catalog/CatalogView';
 import { EditorView } from './components/editor/EditorView';
+import { ToastContainer } from './components/Toast';
 import styles from './App.module.css';
 
 type View = 'catalog' | 'editor';
@@ -19,6 +20,7 @@ export default function App() {
       ) : (
         <EditorView onBack={() => setView('catalog')} />
       )}
+      <ToastContainer />
     </div>
   );
 }

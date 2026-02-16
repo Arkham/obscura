@@ -23,8 +23,6 @@ export function ExportDialog({ defaultFileName, onExport, onClose }: ExportDialo
     setProgress('Exporting...');
     try {
       await onExport({ quality, border, borderWidth }, finalName);
-      setProgress('Done!');
-      alert(`Exported "${finalName}" successfully.`);
       onClose();
     } catch (err) {
       console.error('Export failed:', err);

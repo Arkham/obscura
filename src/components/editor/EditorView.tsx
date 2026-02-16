@@ -17,6 +17,7 @@ import { createRawDecoder } from '../../raw/decoder';
 import { createRgbFloatTexture } from '../../engine/texture-utils';
 import type { ExportOptions } from '../../io/export';
 import { writeFile } from '../../io/filesystem';
+import { useNotificationStore } from '../../store/notificationStore';
 import styles from './EditorView.module.css';
 
 interface EditorViewProps {
@@ -31,6 +32,7 @@ export function EditorView({ onBack }: EditorViewProps) {
   const dirHandle = useCatalogStore((s) => s.dirHandle);
   const resetAll = useEditStore((s) => s.resetAll);
   const edits = useEditStore((s) => s.edits);
+  const notify = useNotificationStore((s) => s.notify);
 
   const [cropMode, setCropMode] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
@@ -104,8 +106,9 @@ export function EditorView({ onBack }: EditorViewProps) {
 
       const blob = await exportJpeg(pipeline, edits, buffer, decoder, options);
       await writeFile(dirHandle, fileName, blob);
+      notify(`Exported "${fileName}"`, 'success');
     },
-    [dirHandle, entries, selectedIndex, edits],
+    [dirHandle, entries, selectedIndex, edits, notify],
   );
 
   // Before/after: render default edits while Space is held
