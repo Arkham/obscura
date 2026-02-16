@@ -400,15 +400,15 @@ export class RenderPipeline {
     }
     if (Math.abs(edits.clarity) >= 0.5 || Math.abs(edits.texture) >= 0.5) {
       this.blurPass(current.texture, alternate, width, height, 8.0);
-      const blurredTex = alternate.texture;
-      if (this.clarityPass(current.texture, blurredTex, alternate, edits)) {
+      this.passthroughPass(alternate.texture, this.fbTemp!.framebuffer, width, height);
+      if (this.clarityPass(current.texture, this.fbTemp!.texture, alternate, edits)) {
         [current, alternate] = [alternate, current];
       }
     }
     if (edits.sharpening.amount >= 0.5) {
       this.blurPass(current.texture, alternate, width, height, edits.sharpening.radius);
-      const blurredTex = alternate.texture;
-      if (this.sharpenPass(current.texture, blurredTex, alternate, edits)) {
+      this.passthroughPass(alternate.texture, this.fbTemp!.framebuffer, width, height);
+      if (this.sharpenPass(current.texture, this.fbTemp!.texture, alternate, edits)) {
         [current, alternate] = [alternate, current];
       }
     }
@@ -501,9 +501,9 @@ export class RenderPipeline {
     // 3. Clarity/Texture: blur current at large radius, then apply
     if (Math.abs(edits.clarity) >= 0.5 || Math.abs(edits.texture) >= 0.5) {
       this.blurPass(current.texture, alternate, this.imageWidth, this.imageHeight, 8.0);
-      const blurredTex = alternate.texture;
-      // Write clarity result to alternate (need a swap)
-      if (this.clarityPass(current.texture, blurredTex, alternate, edits)) {
+      // Copy blurred to fbTemp to avoid feedback loop (reading alternate while writing alternate)
+      this.passthroughPass(alternate.texture, this.fbTemp!.framebuffer, this.imageWidth, this.imageHeight);
+      if (this.clarityPass(current.texture, this.fbTemp!.texture, alternate, edits)) {
         [current, alternate] = [alternate, current];
       }
     }
@@ -511,8 +511,9 @@ export class RenderPipeline {
     // 4. Sharpening: blur current at sharpen radius, then apply
     if (edits.sharpening.amount >= 0.5) {
       this.blurPass(current.texture, alternate, this.imageWidth, this.imageHeight, edits.sharpening.radius);
-      const blurredTex = alternate.texture;
-      if (this.sharpenPass(current.texture, blurredTex, alternate, edits)) {
+      // Copy blurred to fbTemp to avoid feedback loop
+      this.passthroughPass(alternate.texture, this.fbTemp!.framebuffer, this.imageWidth, this.imageHeight);
+      if (this.sharpenPass(current.texture, this.fbTemp!.texture, alternate, edits)) {
         [current, alternate] = [alternate, current];
       }
     }
