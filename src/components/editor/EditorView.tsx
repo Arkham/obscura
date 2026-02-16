@@ -16,7 +16,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { createDefaultEdits } from '../../types/edits';
 import { createRawDecoder } from '../../raw/decoder';
 import { createRgbFloatTexture } from '../../engine/texture-utils';
-import { loadSidecar } from '../../io/sidecar';
+import { loadSidecar, loadHistory } from '../../io/sidecar';
 import type { ExportOptions } from '../../io/export';
 import { writeFile } from '../../io/filesystem';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -54,18 +54,20 @@ export function EditorView({ onBack }: EditorViewProps) {
     (async () => {
       setIsDecoding(true);
       try {
-        // Load saved edits from sidecar (if any) before decoding
+        // Load saved edits and history from sidecar (if any) before decoding
         let savedEdits: Partial<import('../../types/edits').EditState> | null = null;
+        let savedHistory: Awaited<ReturnType<typeof loadHistory>> = null;
         if (dirHandle) {
           try {
             savedEdits = await loadSidecar(dirHandle, entry.name);
+            savedHistory = await loadHistory(dirHandle, entry.name);
           } catch {
             // No sidecar or read error — use defaults
           }
         }
         if (cancelled) return;
 
-        loadEdits(savedEdits ?? {});
+        loadEdits(savedEdits ?? {}, savedHistory);
         if (dirHandle) {
           setAutoSaveTarget(dirHandle, entry.name);
         }

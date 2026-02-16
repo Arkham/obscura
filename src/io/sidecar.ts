@@ -4,10 +4,22 @@ import { writeFile, fileExists, readFile } from './filesystem';
 const SIDECAR_VERSION = 1;
 const DB_FILENAME = 'db.json';
 
+interface PersistedHistoryEntry {
+  label: string;
+  edits: Partial<EditState>;
+  timestamp: number;
+}
+
+interface PersistedHistory {
+  entries: PersistedHistoryEntry[];
+  index: number;
+}
+
 interface EditDb {
   version: number;
   app: string;
   files: Record<string, Partial<EditState>>;
+  history?: Record<string, PersistedHistory>;
 }
 
 function diffFromDefaults(edits: EditState): Partial<EditState> {
@@ -64,10 +76,19 @@ export async function loadSidecar(
   return entry && Object.keys(entry).length > 0 ? entry : null;
 }
 
+export async function loadHistory(
+  dir: FileSystemDirectoryHandle,
+  rawFileName: string,
+): Promise<PersistedHistory | null> {
+  const db = await readDb(dir);
+  return db.history?.[rawFileName] ?? null;
+}
+
 export async function saveSidecar(
   dir: FileSystemDirectoryHandle,
   rawFileName: string,
-  edits: EditState
+  edits: EditState,
+  history?: { entries: { label: string; edits: EditState; timestamp: number }[]; index: number },
 ): Promise<void> {
   const db = await readDb(dir);
   const sparse = diffFromDefaults(edits);
@@ -75,6 +96,17 @@ export async function saveSidecar(
     delete db.files[rawFileName];
   } else {
     db.files[rawFileName] = sparse;
+  }
+  if (history) {
+    if (!db.history) db.history = {};
+    db.history[rawFileName] = {
+      entries: history.entries.map((e) => ({
+        label: e.label,
+        edits: diffFromDefaults(e.edits),
+        timestamp: e.timestamp,
+      })),
+      index: history.index,
+    };
   }
   await writeFile(dir, DB_FILENAME, JSON.stringify(db, null, 2));
 }
