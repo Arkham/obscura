@@ -64,19 +64,26 @@ export const Canvas = forwardRef<CanvasHandle>(function Canvas(_props, ref) {
     return () => observer.disconnect();
   }, [edits]);
 
-  // Zoom via scroll wheel
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((z) => Math.max(0.1, Math.min(20, z * delta)));
+  // Zoom via scroll wheel (native listener to allow preventDefault on non-passive event)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom((z) => Math.max(0.1, Math.min(20, z * delta)));
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+    return () => container.removeEventListener('wheel', onWheel);
   }, []);
 
   // Pan via mouse drag
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (zoom <= 1) return;
     isPanningRef.current = true;
     lastMouseRef.current = { x: e.clientX, y: e.clientY };
-  }, [zoom]);
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isPanningRef.current) return;
@@ -101,14 +108,13 @@ export const Canvas = forwardRef<CanvasHandle>(function Canvas(_props, ref) {
 
   const canvasStyle = {
     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-    cursor: zoom > 1 ? (isPanningRef.current ? 'grabbing' : 'grab') : 'default',
+    cursor: isPanningRef.current ? 'grabbing' : 'grab',
   };
 
   return (
     <div
       ref={containerRef}
       className={styles.container}
-      onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
