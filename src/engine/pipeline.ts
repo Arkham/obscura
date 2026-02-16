@@ -5,6 +5,11 @@ import passthroughVert from './shaders/passthrough.vert';
 import passthroughFrag from './shaders/passthrough.frag';
 import mainFrag from './shaders/main.frag';
 import blurFrag from './shaders/blur.frag';
+import dehazeFrag from './shaders/dehaze.frag';
+import clarityFrag from './shaders/clarity.frag';
+import sharpenFrag from './shaders/sharpen.frag';
+import denoiseFrag from './shaders/denoise.frag';
+import vignetteFrag from './shaders/vignette.frag';
 
 function compileShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type)!;
@@ -39,6 +44,11 @@ export class RenderPipeline {
   private passthroughProgram: WebGLProgram;
   private mainProgram: WebGLProgram;
   private blurProgram: WebGLProgram;
+  private dehazeProgram: WebGLProgram;
+  private clarityProgram: WebGLProgram;
+  private sharpenProgram: WebGLProgram;
+  private denoiseProgram: WebGLProgram;
+  private vignetteProgram: WebGLProgram;
   private vao: WebGLVertexArrayObject;
   private sourceTexture: WebGLTexture | null = null;
   private imageWidth = 0;
@@ -71,6 +81,11 @@ export class RenderPipeline {
     this.passthroughProgram = createProgram(gl, passthroughVert, passthroughFrag);
     this.mainProgram = createProgram(gl, passthroughVert, mainFrag);
     this.blurProgram = createProgram(gl, passthroughVert, blurFrag);
+    this.dehazeProgram = createProgram(gl, passthroughVert, dehazeFrag);
+    this.clarityProgram = createProgram(gl, passthroughVert, clarityFrag);
+    this.sharpenProgram = createProgram(gl, passthroughVert, sharpenFrag);
+    this.denoiseProgram = createProgram(gl, passthroughVert, denoiseFrag);
+    this.vignetteProgram = createProgram(gl, passthroughVert, vignetteFrag);
 
     // Empty VAO for attribute-less rendering (fullscreen triangle)
     this.vao = gl.createVertexArray()!;
@@ -239,27 +254,152 @@ export class RenderPipeline {
     this.drawFullscreen();
   }
 
+  private dehazePass(source: WebGLTexture, target: { framebuffer: WebGLFramebuffer }, edits: EditState) {
+    if (Math.abs(edits.dehaze) < 0.5) return false;
+    const { gl } = this;
+    const prog = this.dehazeProgram;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+    gl.viewport(0, 0, this.imageWidth, this.imageHeight);
+    gl.useProgram(prog);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, source);
+    gl.uniform1i(gl.getUniformLocation(prog, 'uSource'), 0);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uDehaze'), edits.dehaze);
+    gl.uniform2f(gl.getUniformLocation(prog, 'uTexelSize'), 1.0 / this.imageWidth, 1.0 / this.imageHeight);
+    this.drawFullscreen();
+    return true;
+  }
+
+  private clarityPass(source: WebGLTexture, blurred: WebGLTexture, target: { framebuffer: WebGLFramebuffer }, edits: EditState) {
+    if (Math.abs(edits.clarity) < 0.5 && Math.abs(edits.texture) < 0.5) return false;
+    const { gl } = this;
+    const prog = this.clarityProgram;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+    gl.viewport(0, 0, this.imageWidth, this.imageHeight);
+    gl.useProgram(prog);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, source);
+    gl.uniform1i(gl.getUniformLocation(prog, 'uSource'), 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, blurred);
+    gl.uniform1i(gl.getUniformLocation(prog, 'uBlurred'), 1);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uClarity'), edits.clarity);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uTexture'), edits.texture);
+    this.drawFullscreen();
+    return true;
+  }
+
+  private sharpenPass(source: WebGLTexture, blurred: WebGLTexture, target: { framebuffer: WebGLFramebuffer }, edits: EditState) {
+    if (edits.sharpening.amount < 0.5) return false;
+    const { gl } = this;
+    const prog = this.sharpenProgram;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+    gl.viewport(0, 0, this.imageWidth, this.imageHeight);
+    gl.useProgram(prog);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, source);
+    gl.uniform1i(gl.getUniformLocation(prog, 'uSource'), 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, blurred);
+    gl.uniform1i(gl.getUniformLocation(prog, 'uBlurred'), 1);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uAmount'), edits.sharpening.amount);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uDetail'), edits.sharpening.detail);
+    this.drawFullscreen();
+    return true;
+  }
+
+  private denoisePass(source: WebGLTexture, target: { framebuffer: WebGLFramebuffer }, edits: EditState) {
+    if (edits.noiseReduction.luminance < 0.5 && edits.noiseReduction.color < 0.5) return false;
+    const { gl } = this;
+    const prog = this.denoiseProgram;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+    gl.viewport(0, 0, this.imageWidth, this.imageHeight);
+    gl.useProgram(prog);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, source);
+    gl.uniform1i(gl.getUniformLocation(prog, 'uSource'), 0);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uLuminanceNR'), edits.noiseReduction.luminance);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uColorNR'), edits.noiseReduction.color);
+    gl.uniform2f(gl.getUniformLocation(prog, 'uTexelSize'), 1.0 / this.imageWidth, 1.0 / this.imageHeight);
+    this.drawFullscreen();
+    return true;
+  }
+
+  private vignettePass(source: WebGLTexture, target: WebGLFramebuffer | null, width: number, height: number, edits: EditState) {
+    if (Math.abs(edits.vignette.amount) < 0.5) return false;
+    const { gl } = this;
+    const prog = this.vignetteProgram;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target);
+    gl.viewport(0, 0, width, height);
+    gl.useProgram(prog);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, source);
+    gl.uniform1i(gl.getUniformLocation(prog, 'uSource'), 0);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uAmount'), edits.vignette.amount);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uMidpoint'), edits.vignette.midpoint);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uRoundness'), edits.vignette.roundness);
+    gl.uniform1f(gl.getUniformLocation(prog, 'uFeather'), edits.vignette.feather);
+    // Crop rect: use full image if no crop
+    const crop = edits.crop ?? { x: 0, y: 0, width: 1, height: 1 };
+    gl.uniform4f(gl.getUniformLocation(prog, 'uCropRect'), crop.x, crop.y, crop.width, crop.height);
+    this.drawFullscreen();
+    return true;
+  }
+
   render(edits: EditState) {
     const { gl } = this;
-    if (!this.sourceTexture || !this.fbA) return;
+    if (!this.sourceTexture || !this.fbA || !this.fbB) return;
 
-    // Update curve LUTs
     this.updateCurveLuts(edits);
 
-    // Main adjustment pass: source → fbA
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbA.framebuffer);
+    // Track which FB has the current result: start writing to fbA
+    let current = this.fbA;
+    let alternate = this.fbB;
+
+    // 1. Main adjustment pass: source → current (fbA)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, current.framebuffer);
     gl.viewport(0, 0, this.imageWidth, this.imageHeight);
     gl.useProgram(this.mainProgram);
-
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
     gl.uniform1i(gl.getUniformLocation(this.mainProgram, 'uSource'), 0);
-
     this.setMainUniforms(edits);
     this.drawFullscreen();
 
-    // Final output to screen: fbA → screen
-    this.passthroughPass(this.fbA.texture, null, gl.canvas.width, gl.canvas.height);
+    // 2. Dehaze: current → alternate
+    if (this.dehazePass(current.texture, alternate, edits)) {
+      [current, alternate] = [alternate, current];
+    }
+
+    // 3. Clarity/Texture: blur current at large radius, then apply
+    if (Math.abs(edits.clarity) >= 0.5 || Math.abs(edits.texture) >= 0.5) {
+      this.blurPass(current.texture, alternate, this.imageWidth, this.imageHeight, 8.0);
+      const blurredTex = alternate.texture;
+      // Write clarity result to alternate (need a swap)
+      if (this.clarityPass(current.texture, blurredTex, alternate, edits)) {
+        [current, alternate] = [alternate, current];
+      }
+    }
+
+    // 4. Sharpening: blur current at sharpen radius, then apply
+    if (edits.sharpening.amount >= 0.5) {
+      this.blurPass(current.texture, alternate, this.imageWidth, this.imageHeight, edits.sharpening.radius);
+      const blurredTex = alternate.texture;
+      if (this.sharpenPass(current.texture, blurredTex, alternate, edits)) {
+        [current, alternate] = [alternate, current];
+      }
+    }
+
+    // 5. Denoise: current → alternate
+    if (this.denoisePass(current.texture, alternate, edits)) {
+      [current, alternate] = [alternate, current];
+    }
+
+    // 6. Vignette → screen
+    if (!this.vignettePass(current.texture, null, gl.canvas.width, gl.canvas.height, edits)) {
+      // No vignette — passthrough to screen
+      this.passthroughPass(current.texture, null, gl.canvas.width, gl.canvas.height);
+    }
   }
 
   destroy() {
@@ -267,6 +407,11 @@ export class RenderPipeline {
     gl.deleteProgram(this.passthroughProgram);
     gl.deleteProgram(this.mainProgram);
     gl.deleteProgram(this.blurProgram);
+    gl.deleteProgram(this.dehazeProgram);
+    gl.deleteProgram(this.clarityProgram);
+    gl.deleteProgram(this.sharpenProgram);
+    gl.deleteProgram(this.denoiseProgram);
+    gl.deleteProgram(this.vignetteProgram);
     gl.deleteVertexArray(this.vao);
     gl.deleteTexture(this.curveRGB);
     gl.deleteTexture(this.curveR);
