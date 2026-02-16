@@ -19,6 +19,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
   const pipelineRef = useRef<RenderPipeline | null>(null);
 
   const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const isPanningRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
@@ -87,8 +88,20 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setZoom((z) => Math.max(0.1, Math.min(20, z * delta)));
+      const rect = container.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      const oldZoom = zoomRef.current;
+      const newZoom = Math.max(0.1, Math.min(20, oldZoom * (e.deltaY > 0 ? 0.9 : 1.1)));
+      const factor = newZoom / oldZoom;
+      zoomRef.current = newZoom;
+
+      setZoom(newZoom);
+      setPan((p) => ({
+        x: mx - (mx - p.x) * factor,
+        y: my - (my - p.y) * factor,
+      }));
     };
 
     container.addEventListener('wheel', onWheel, { passive: false });
@@ -114,6 +127,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
   }, []);
 
   const handleDoubleClick = useCallback(() => {
+    zoomRef.current = 1;
     setZoom(1);
     setPan({ x: 0, y: 0 });
   }, []);

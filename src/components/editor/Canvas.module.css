@@ -9,6 +9,6 @@
 }
 
 .canvas {
-  transform-origin: center center;
+  transform-origin: 0 0;
   image-rendering: high-quality;
 }
