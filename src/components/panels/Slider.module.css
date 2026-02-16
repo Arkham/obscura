@@ -1,0 +1,88 @@
+.slider {
+  padding: 2px 0;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.label {
+  font-size: 11px;
+  color: var(--text-secondary, #a0a0a0);
+  user-select: none;
+}
+
+.value {
+  font-size: 11px;
+  color: var(--text-primary, #e0e0e0);
+  min-width: 36px;
+  text-align: right;
+  cursor: text;
+  user-select: none;
+}
+
+.editInput {
+  font-size: 11px;
+  width: 48px;
+  text-align: right;
+  background: var(--bg-tertiary, #3d3d3d);
+  color: var(--text-primary, #e0e0e0);
+  border: 1px solid var(--accent, #4a9eff);
+  border-radius: 2px;
+  padding: 0 4px;
+  outline: none;
+}
+
+.trackContainer {
+  position: relative;
+  height: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.fill {
+  position: absolute;
+  height: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--slider-fill, #4a9eff);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.input {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--slider-track, #555555);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  margin: 0;
+}
+
+.input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-primary, #e0e0e0);
+  cursor: pointer;
+  border: none;
+  position: relative;
+  z-index: 1;
+}
+
+.input::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-primary, #e0e0e0);
+  cursor: pointer;
+  border: none;
+}
