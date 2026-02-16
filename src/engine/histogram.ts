@@ -32,12 +32,12 @@ export function updateHistogram(
   gl: WebGL2RenderingContext,
   viewport: { x: number; y: number; w: number; h: number },
 ): void {
+  const { x: vx, y: vy, w: vw, h: vh } = viewport;
+  if (vw <= 0 || vh <= 0) return;
+
   const now = performance.now();
   if (now - _lastTime < MIN_INTERVAL) return;
   _lastTime = now;
-
-  const { x: vx, y: vy, w: vw, h: vh } = viewport;
-  if (vw <= 0 || vh <= 0) return;
 
   // Read pixels from the default framebuffer (screen) within the image viewport
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);

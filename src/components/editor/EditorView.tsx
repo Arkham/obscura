@@ -89,16 +89,12 @@ export function EditorView({ onBack }: EditorViewProps) {
 
         if (cancelled) return;
 
-        const pipeline = canvasRef.current?.getPipeline();
-        if (!pipeline) return;
+        const canvas = canvasRef.current;
+        const gl = canvas?.getPipeline()?.getGL();
+        if (!canvas || !gl) return;
 
-        const gl = pipeline.getGL();
         const tex = createRgbFloatTexture(gl, decoded.width, decoded.height, decoded.data);
-        pipeline.setSourceTexture(tex, decoded.width, decoded.height);
-
-        // Render with the loaded edits (now in store)
-        const currentEdits = useEditStore.getState().edits;
-        pipeline.render(currentEdits);
+        canvas.setImage(tex, decoded.width, decoded.height);
       } catch (err) {
         console.error(`Failed to decode ${entry.name}:`, err);
       } finally {

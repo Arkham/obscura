@@ -119,11 +119,12 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
       const p = pipelineRef.current;
       if (!p) return;
       p.setSourceTexture(texture, width, height);
-      p.render(edits);
+      const currentEdits = useEditStore.getState().edits;
+      p.render(currentEdits);
       updateHistogram(p.getGL(), p._lastViewport);
     },
     getPipeline: () => pipelineRef.current,
-  }), [edits]);
+  }), []);
 
   const canvasStyle = {
     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
