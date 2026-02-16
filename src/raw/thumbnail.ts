@@ -11,13 +11,22 @@ export function extractEmbeddedJpeg(data: Uint8Array): Blob | null {
   for (let i = 0; i < data.length - 3; i++) {
     // JPEG SOI: FF D8 FF
     if (data[i] === 0xff && data[i + 1] === 0xd8 && data[i + 2] === 0xff) {
-      // Search for matching EOI (FF D9)
+      // Search for the LAST FF D9 (EOI) before the next SOI or EOF.
+      // RAW files can contain FF D9 bytes inside TIFF metadata, so
+      // greedily scanning for the last EOI avoids truncating the JPEG.
+      let lastEoi = -1;
       for (let j = i + 3; j < data.length - 1; j++) {
-        if (data[j] === 0xff && data[j + 1] === 0xd9) {
-          candidates.push({ start: i, end: j + 2 });
-          i = j + 1; // skip past this JPEG
+        // Stop if we hit another SOI — that's a separate embedded JPEG
+        if (data[j] === 0xff && data[j + 1] === 0xd8 && data[j + 2] === 0xff) {
           break;
         }
+        if (data[j] === 0xff && data[j + 1] === 0xd9) {
+          lastEoi = j + 2;
+        }
+      }
+      if (lastEoi > i) {
+        candidates.push({ start: i, end: lastEoi });
+        i = lastEoi - 1; // skip past this JPEG
       }
     }
   }
@@ -28,6 +37,9 @@ export function extractEmbeddedJpeg(data: Uint8Array): Blob | null {
   const best = candidates.reduce((a, b) =>
     (b.end - b.start) > (a.end - a.start) ? b : a,
   );
+
+  // Minimum size sanity check — a valid JPEG preview is at least a few KB
+  if (best.end - best.start < 1000) return null;
 
   return new Blob([data.subarray(best.start, best.end)], { type: 'image/jpeg' });
 }
