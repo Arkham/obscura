@@ -16,8 +16,8 @@ export async function exportJpeg(
   decoder: RawDecoder,
   options: ExportOptions,
 ): Promise<Blob> {
-  // 1. Decode full resolution
-  const fullRes = await decoder.decode(rawBuffer, false);
+  // 1. Decode at half resolution (dcraw asm.js can't handle full-res memory)
+  const fullRes = await decoder.decode(rawBuffer, true);
 
   // 2. Upload full-res texture and render through pipeline
   const gl = pipeline.getGL();

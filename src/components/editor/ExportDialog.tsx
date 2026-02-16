@@ -3,11 +3,13 @@ import type { ExportOptions } from '../../io/export';
 import styles from './ExportDialog.module.css';
 
 interface ExportDialogProps {
-  onExport: (options: ExportOptions) => Promise<void>;
+  defaultFileName: string;
+  onExport: (options: ExportOptions, fileName: string) => Promise<void>;
   onClose: () => void;
 }
 
-export function ExportDialog({ onExport, onClose }: ExportDialogProps) {
+export function ExportDialog({ defaultFileName, onExport, onClose }: ExportDialogProps) {
+  const [fileName, setFileName] = useState(defaultFileName);
   const [quality, setQuality] = useState(92);
   const [border, setBorder] = useState<ExportOptions['border']>('none');
   const [borderWidth, setBorderWidth] = useState(5);
@@ -15,17 +17,21 @@ export function ExportDialog({ onExport, onClose }: ExportDialogProps) {
   const [progress, setProgress] = useState('');
 
   const handleExport = useCallback(async () => {
+    const name = fileName.trim() || defaultFileName;
+    const finalName = name.endsWith('.jpg') || name.endsWith('.jpeg') ? name : `${name}.jpg`;
     setExporting(true);
     setProgress('Exporting...');
     try {
-      await onExport({ quality, border, borderWidth });
+      await onExport({ quality, border, borderWidth }, finalName);
+      setProgress('Done!');
+      alert(`Exported "${finalName}" successfully.`);
       onClose();
     } catch (err) {
       console.error('Export failed:', err);
       setProgress('Export failed');
       setExporting(false);
     }
-  }, [quality, border, borderWidth, onExport, onClose]);
+  }, [fileName, defaultFileName, quality, border, borderWidth, onExport, onClose]);
 
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
@@ -38,6 +44,17 @@ export function ExportDialog({ onExport, onClose }: ExportDialogProps) {
     <div className={styles.backdrop} onClick={handleBackdropClick}>
       <div className={styles.dialog}>
         <div className={styles.title}>Export JPEG</div>
+
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>File Name</span>
+          <input
+            className={styles.textInput}
+            type="text"
+            value={fileName}
+            onChange={(e) => setFileName(e.target.value)}
+            disabled={exporting}
+          />
+        </div>
 
         <div className={styles.field}>
           <span className={styles.fieldLabel}>Quality</span>

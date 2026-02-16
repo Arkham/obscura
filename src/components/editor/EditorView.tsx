@@ -90,7 +90,7 @@ export function EditorView({ onBack }: EditorViewProps) {
   }, []);
 
   const handleExport = useCallback(
-    async (options: ExportOptions) => {
+    async (options: ExportOptions, fileName: string) => {
       const pipeline = canvasRef.current?.getPipeline();
       if (!pipeline || !dirHandle || selectedIndex < 0) return;
 
@@ -103,10 +103,7 @@ export function EditorView({ onBack }: EditorViewProps) {
       const decoder = createRawDecoder();
 
       const blob = await exportJpeg(pipeline, edits, buffer, decoder, options);
-
-      const baseName = entry.name.replace(/\.[^.]+$/, '');
-      const exportName = `${baseName}_edit.jpg`;
-      await writeFile(dirHandle, exportName, blob);
+      await writeFile(dirHandle, fileName, blob);
     },
     [dirHandle, entries, selectedIndex, edits],
   );
@@ -249,7 +246,11 @@ export function EditorView({ onBack }: EditorViewProps) {
         </button>
       </div>
       {showExport && (
-        <ExportDialog onExport={handleExport} onClose={() => setShowExport(false)} />
+        <ExportDialog
+          defaultFileName={currentName ? currentName.replace(/\.[^.]+$/, '_edit.jpg') : 'export.jpg'}
+          onExport={handleExport}
+          onClose={() => setShowExport(false)}
+        />
       )}
     </div>
   );

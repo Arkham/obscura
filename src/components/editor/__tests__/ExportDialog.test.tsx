@@ -6,7 +6,7 @@ describe('ExportDialog', () => {
   it('renders with default values', () => {
     const onExport = vi.fn();
     const onClose = vi.fn();
-    render(<ExportDialog onExport={onExport} onClose={onClose} />);
+    render(<ExportDialog defaultFileName="test_edit.jpg" onExport={onExport} onClose={onClose} />);
 
     expect(screen.getByText('Export JPEG')).toBeInTheDocument();
     expect(screen.getByText('Cancel')).toBeInTheDocument();
@@ -16,7 +16,7 @@ describe('ExportDialog', () => {
   it('calls onClose when Cancel is clicked', () => {
     const onExport = vi.fn();
     const onClose = vi.fn();
-    render(<ExportDialog onExport={onExport} onClose={onClose} />);
+    render(<ExportDialog defaultFileName="test_edit.jpg" onExport={onExport} onClose={onClose} />);
 
     fireEvent.click(screen.getByText('Cancel'));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -25,7 +25,7 @@ describe('ExportDialog', () => {
   it('calls onExport with options when Export is clicked', async () => {
     const onExport = vi.fn().mockResolvedValue(undefined);
     const onClose = vi.fn();
-    render(<ExportDialog onExport={onExport} onClose={onClose} />);
+    render(<ExportDialog defaultFileName="test_edit.jpg" onExport={onExport} onClose={onClose} />);
 
     fireEvent.click(screen.getByText('Export'));
 
@@ -40,7 +40,7 @@ describe('ExportDialog', () => {
   it('shows border width slider when border is selected', () => {
     const onExport = vi.fn();
     const onClose = vi.fn();
-    render(<ExportDialog onExport={onExport} onClose={onClose} />);
+    render(<ExportDialog defaultFileName="test_edit.jpg" onExport={onExport} onClose={onClose} />);
 
     // Initially no border width slider visible (border='none')
     expect(screen.queryByText('Border Width (%)')).not.toBeInTheDocument();
@@ -56,7 +56,7 @@ describe('ExportDialog', () => {
   it('closes on backdrop click', () => {
     const onExport = vi.fn();
     const onClose = vi.fn();
-    const { container } = render(<ExportDialog onExport={onExport} onClose={onClose} />);
+    const { container } = render(<ExportDialog defaultFileName="test_edit.jpg" onExport={onExport} onClose={onClose} />);
 
     // Click on the backdrop (first child of container)
     const backdrop = container.firstChild as HTMLElement;

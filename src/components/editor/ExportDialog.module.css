@@ -35,6 +35,22 @@
   margin-bottom: 4px;
 }
 
+.textInput {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-primary, #1e1e1e);
+  border: 1px solid var(--border, #404040);
+  border-radius: 4px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.textInput:focus {
+  outline: none;
+  border-color: var(--accent, #4a9eff);
+}
+
 .fieldRow {
   display: flex;
   align-items: center;
