@@ -5,6 +5,8 @@ import { PresencePanel } from '../panels/PresencePanel';
 import { ToneCurvePanel } from '../panels/ToneCurvePanel';
 import { HslPanel } from '../panels/HslPanel';
 import { ColorGradingPanel } from '../panels/ColorGradingPanel';
+import { DetailPanel } from '../panels/DetailPanel';
+import { EffectsPanel } from '../panels/EffectsPanel';
 import { useEditStore } from '../../store/editStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import styles from './EditorView.module.css';
@@ -50,6 +52,8 @@ export function EditorView({ onBack }: EditorViewProps) {
             <ToneCurvePanel />
             <HslPanel />
             <ColorGradingPanel />
+            <DetailPanel />
+            <EffectsPanel />
           </div>
         </div>
       </div>
