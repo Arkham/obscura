@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef, useState } from 'react';
+import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { RenderPipeline } from '../../engine/pipeline';
 import { updateHistogram } from '../../engine/histogram';
 import { useEditStore } from '../../store/editStore';
@@ -7,24 +7,62 @@ import styles from './Canvas.module.css';
 export interface CanvasHandle {
   setImage: (texture: WebGLTexture, width: number, height: number) => void;
   getPipeline: () => RenderPipeline | null;
+  getView: () => { zoom: number; panX: number; panY: number };
 }
 
 interface CanvasProps {
   cropMode?: boolean;
+  onZoomChange?: (zoom: number) => void;
 }
 
-export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cropMode }, ref) {
+export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cropMode, onZoomChange }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pipelineRef = useRef<RenderPipeline | null>(null);
 
-  const [zoom, setZoom] = useState(1);
+  // Zoom/pan live in refs — updated synchronously, rendered via rAF
   const zoomRef = useRef(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const isPanningRef = useRef(false);
-  const lastMouseRef = useRef({ x: 0, y: 0 });
+  const panRef = useRef({ x: 0, y: 0 });
+  const rafIdRef = useRef(0);
+  const histogramTimerRef = useRef(0);
+  const cropModeRef = useRef(cropMode);
+  cropModeRef.current = cropMode;
+  const onZoomChangeRef = useRef(onZoomChange);
+  onZoomChangeRef.current = onZoomChange;
 
   const edits = useEditStore((s) => s.edits);
+
+  /** Build view params in device pixels from current refs */
+  const getView = useCallback(() => {
+    const dpr = window.devicePixelRatio || 1;
+    return {
+      zoom: zoomRef.current,
+      panX: panRef.current.x * dpr,
+      panY: panRef.current.y * dpr,
+    };
+  }, []);
+
+  /** Schedule a pipeline render on the next animation frame (deduplicates) */
+  const scheduleRender = useCallback(() => {
+    if (rafIdRef.current) return; // already scheduled
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = 0;
+      const p = pipelineRef.current;
+      if (!p) return;
+      const currentEdits = useEditStore.getState().edits;
+      const renderEdits = cropModeRef.current ? { ...currentEdits, crop: null } : currentEdits;
+      p.render(renderEdits, getView());
+    });
+  }, [getView]);
+
+  /** Schedule a deferred histogram update (debounced, runs after zoom/pan settles) */
+  const scheduleHistogram = useCallback(() => {
+    clearTimeout(histogramTimerRef.current);
+    histogramTimerRef.current = window.setTimeout(() => {
+      const p = pipelineRef.current;
+      if (p) updateHistogram(p.getGL(), p._lastViewport);
+    }, 150);
+  }, []);
 
   // Initialize pipeline
   useEffect(() => {
@@ -40,20 +78,19 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
     return () => {
       pipelineRef.current?.destroy();
       pipelineRef.current = null;
+      cancelAnimationFrame(rafIdRef.current);
+      clearTimeout(histogramTimerRef.current);
     };
   }, []);
 
-  // Re-render when edits change (skip crop when in crop mode to show full image)
+  // Re-render when edits or crop mode change (immediate, with histogram)
   useEffect(() => {
     const p = pipelineRef.current;
     if (!p) return;
-    if (cropMode) {
-      p.render({ ...edits, crop: null });
-    } else {
-      p.render(edits);
-    }
+    const renderEdits = cropMode ? { ...edits, crop: null } : edits;
+    p.render(renderEdits, getView());
     updateHistogram(p.getGL(), p._lastViewport);
-  }, [edits, cropMode]);
+  }, [edits, cropMode, getView]);
 
   // Handle resize
   useEffect(() => {
@@ -69,8 +106,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
         canvas.height = Math.round(height * dpr);
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
-        const renderEdits = cropMode ? { ...edits, crop: null } : edits;
-        pipelineRef.current?.render(renderEdits);
+        const currentEdits = useEditStore.getState().edits;
+        const renderEdits = cropModeRef.current ? { ...currentEdits, crop: null } : currentEdits;
+        pipelineRef.current?.render(renderEdits, getView());
         if (pipelineRef.current) {
           updateHistogram(pipelineRef.current.getGL(), pipelineRef.current._lastViewport);
         }
@@ -79,7 +117,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, [edits, cropMode]);
+  }, [getView]);
 
   // Zoom via scroll wheel (native listener to allow preventDefault on non-passive event)
   useEffect(() => {
@@ -89,48 +127,87 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const rect = container.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      // Cursor position relative to container center
+      const dx = e.clientX - rect.left - rect.width / 2;
+      const dy = e.clientY - rect.top - rect.height / 2;
 
       const oldZoom = zoomRef.current;
       const newZoom = Math.max(0.1, Math.min(20, oldZoom * (e.deltaY > 0 ? 0.9 : 1.1)));
       const factor = newZoom / oldZoom;
       zoomRef.current = newZoom;
 
-      setZoom(newZoom);
-      setPan((p) => ({
-        x: mx - (mx - p.x) * factor,
-        y: my - (my - p.y) * factor,
-      }));
+      const p = panRef.current;
+      panRef.current = {
+        x: dx - (dx - p.x) * factor,
+        y: dy - (dy - p.y) * factor,
+      };
+
+      scheduleRender();
+      scheduleHistogram();
+      onZoomChangeRef.current?.(newZoom);
     };
 
     container.addEventListener('wheel', onWheel, { passive: false });
     return () => container.removeEventListener('wheel', onWheel);
-  }, []);
+  }, [scheduleRender, scheduleHistogram]);
 
-  // Pan via mouse drag
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    isPanningRef.current = true;
-    lastMouseRef.current = { x: e.clientX, y: e.clientY };
-  }, []);
+  // Pan via mouse drag (native listeners for pointermove performance)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isPanningRef.current) return;
-    const dx = e.clientX - lastMouseRef.current.x;
-    const dy = e.clientY - lastMouseRef.current.y;
-    lastMouseRef.current = { x: e.clientX, y: e.clientY };
-    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
-  }, []);
+    let isPanning = false;
+    let lastX = 0;
+    let lastY = 0;
 
-  const handleMouseUp = useCallback(() => {
-    isPanningRef.current = false;
-  }, []);
+    const onPointerDown = (e: PointerEvent) => {
+      isPanning = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      container.setPointerCapture(e.pointerId);
+      container.style.cursor = 'grabbing';
+    };
 
-  const handleDoubleClick = useCallback(() => {
-    zoomRef.current = 1;
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, []);
+    const onPointerMove = (e: PointerEvent) => {
+      if (!isPanning) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      panRef.current = {
+        x: panRef.current.x + dx,
+        y: panRef.current.y + dy,
+      };
+      scheduleRender();
+      scheduleHistogram();
+    };
+
+    const onPointerUp = () => {
+      isPanning = false;
+      container.style.cursor = 'grab';
+    };
+
+    const onDoubleClick = () => {
+      zoomRef.current = 1;
+      panRef.current = { x: 0, y: 0 };
+      scheduleRender();
+      scheduleHistogram();
+      onZoomChangeRef.current?.(1);
+    };
+
+    container.addEventListener('pointerdown', onPointerDown);
+    container.addEventListener('pointermove', onPointerMove);
+    container.addEventListener('pointerup', onPointerUp);
+    container.addEventListener('pointerleave', onPointerUp);
+    container.addEventListener('dblclick', onDoubleClick);
+    return () => {
+      container.removeEventListener('pointerdown', onPointerDown);
+      container.removeEventListener('pointermove', onPointerMove);
+      container.removeEventListener('pointerup', onPointerUp);
+      container.removeEventListener('pointerleave', onPointerUp);
+      container.removeEventListener('dblclick', onDoubleClick);
+    };
+  }, [scheduleRender, scheduleHistogram]);
 
   // Expose setImage to parent
   useImperativeHandle(ref, () => ({
@@ -139,28 +216,20 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({ cr
       if (!p) return;
       p.setSourceTexture(texture, width, height);
       const currentEdits = useEditStore.getState().edits;
-      p.render(currentEdits);
+      p.render(currentEdits, getView());
       updateHistogram(p.getGL(), p._lastViewport);
     },
     getPipeline: () => pipelineRef.current,
-  }), []);
-
-  const canvasStyle = {
-    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-    cursor: isPanningRef.current ? 'grabbing' : 'grab',
-  };
+    getView,
+  }), [getView]);
 
   return (
     <div
       ref={containerRef}
       className={styles.container}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onDoubleClick={handleDoubleClick}
+      style={{ cursor: 'grab' }}
     >
-      <canvas ref={canvasRef} className={styles.canvas} style={canvasStyle} />
+      <canvas ref={canvasRef} className={styles.canvas} />
     </div>
   );
 });

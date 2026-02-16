@@ -9,6 +9,5 @@
 }
 
 .canvas {
-  transform-origin: 0 0;
   image-rendering: high-quality;
 }

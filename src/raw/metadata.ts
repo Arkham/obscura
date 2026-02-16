@@ -4,6 +4,8 @@ export interface ImageMetadata {
   shutterSpeed: string | null; // "1/250" format
   aperture: string | null; // "f/2.8" format
   focalLength: string | null; // "50mm" format
+  imageWidth: number | null;
+  imageHeight: number | null;
 }
 
 export function extractMetadata(buffer: ArrayBuffer): ImageMetadata {
@@ -13,6 +15,8 @@ export function extractMetadata(buffer: ArrayBuffer): ImageMetadata {
     shutterSpeed: null,
     aperture: null,
     focalLength: null,
+    imageWidth: null,
+    imageHeight: null,
   };
 
   try {
@@ -52,6 +56,12 @@ export function extractMetadata(buffer: ArrayBuffer): ImageMetadata {
         const raw = trimmed.slice('Aperture:'.length).trim();
         // dcraw outputs "f/2.8"
         result.aperture = raw || null;
+      } else if (trimmed.startsWith('Image size:')) {
+        const match = trimmed.match(/(\d+)\s*x\s*(\d+)/);
+        if (match) {
+          result.imageWidth = parseInt(match[1]);
+          result.imageHeight = parseInt(match[2]);
+        }
       } else if (trimmed.startsWith('Focal length:')) {
         const raw = trimmed.slice('Focal length:'.length).trim();
         // dcraw outputs "50.0 mm"

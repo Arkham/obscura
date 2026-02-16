@@ -215,6 +215,7 @@ export class RenderPipeline {
     gl.bindTexture(gl.TEXTURE_2D, source);
     gl.uniform1i(gl.getUniformLocation(this.passthroughProgram, 'uTexture'), 0);
     gl.uniform4f(gl.getUniformLocation(this.passthroughProgram, 'uCropRect'), 0, 0, 1, 1);
+    gl.uniform4f(gl.getUniformLocation(this.passthroughProgram, 'uViewRect'), 0, 0, 1, 1);
     this.drawFullscreen();
   }
 
@@ -473,7 +474,7 @@ export class RenderPipeline {
     return new ImageData(flipped, outW, outH);
   }
 
-  render(edits: EditState) {
+  render(edits: EditState, view?: { zoom: number; panX: number; panY: number }) {
     const { gl } = this;
     if (!this.sourceTexture || !this.fbA || !this.fbB) return;
 
@@ -532,16 +533,38 @@ export class RenderPipeline {
     const imageAspect = croppedW / croppedH;
     const canvasAspect = canvasW / canvasH;
 
-    let viewW: number, viewH: number;
+    let fitW: number, fitH: number;
     if (imageAspect > canvasAspect) {
-      viewW = canvasW;
-      viewH = Math.round(canvasW / imageAspect);
+      fitW = canvasW;
+      fitH = Math.round(canvasW / imageAspect);
     } else {
-      viewH = canvasH;
-      viewW = Math.round(canvasH * imageAspect);
+      fitH = canvasH;
+      fitW = Math.round(canvasH * imageAspect);
     }
-    const viewX = Math.round((canvasW - viewW) / 2);
-    const viewY = Math.round((canvasH - viewH) / 2);
+
+    const zoom = view?.zoom ?? 1;
+    const panX = view?.panX ?? 0;
+    const panY = view?.panY ?? 0;
+
+    // Virtual image rect (may extend far beyond canvas at high zoom)
+    const virtualW = fitW * zoom;
+    const virtualH = fitH * zoom;
+    const virtualX = (canvasW - virtualW) / 2 + panX;
+    const virtualY = (canvasH - virtualH) / 2 - panY;
+
+    // Clamp to canvas bounds for the actual GL viewport
+    const vpLeft = Math.max(0, Math.round(virtualX));
+    const vpBottom = Math.max(0, Math.round(virtualY));
+    const vpRight = Math.min(canvasW, Math.round(virtualX + virtualW));
+    const vpTop = Math.min(canvasH, Math.round(virtualY + virtualH));
+    const vpW = Math.max(0, vpRight - vpLeft);
+    const vpH = Math.max(0, vpTop - vpBottom);
+
+    // View rect: which portion of the image [0,1] is visible in this viewport
+    const viewRectX = virtualW > 0 ? (vpLeft - virtualX) / virtualW : 0;
+    const viewRectY = virtualH > 0 ? (vpBottom - virtualY) / virtualH : 0;
+    const viewRectW = virtualW > 0 ? vpW / virtualW : 1;
+    const viewRectH = virtualH > 0 ? vpH / virtualH : 1;
 
     // Clear to dark background for letterbox bars
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -549,8 +572,8 @@ export class RenderPipeline {
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    // Render into letterboxed viewport
-    gl.viewport(viewX, viewY, viewW, viewH);
+    // Render into the visible portion of the image
+    gl.viewport(vpLeft, vpBottom, vpW, vpH);
     const hasVignette = Math.abs(edits.vignette.amount) >= 0.5;
     if (hasVignette) {
       const prog = this.vignetteProgram;
@@ -563,17 +586,24 @@ export class RenderPipeline {
       gl.uniform1f(gl.getUniformLocation(prog, 'uRoundness'), edits.vignette.roundness);
       gl.uniform1f(gl.getUniformLocation(prog, 'uFeather'), edits.vignette.feather);
       gl.uniform4f(gl.getUniformLocation(prog, 'uCropRect'), crop.x, crop.y, crop.width, crop.height);
+      gl.uniform4f(gl.getUniformLocation(prog, 'uViewRect'), viewRectX, viewRectY, viewRectW, viewRectH);
     } else {
       gl.useProgram(this.passthroughProgram);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, current.texture);
       gl.uniform1i(gl.getUniformLocation(this.passthroughProgram, 'uTexture'), 0);
       gl.uniform4f(gl.getUniformLocation(this.passthroughProgram, 'uCropRect'), crop.x, crop.y, crop.width, crop.height);
+      gl.uniform4f(gl.getUniformLocation(this.passthroughProgram, 'uViewRect'), viewRectX, viewRectY, viewRectW, viewRectH);
     }
     this.drawFullscreen();
 
-    // Store the last computed viewport for overlay alignment
-    this._lastViewport = { x: viewX, y: viewY, w: viewW, h: viewH };
+    // Store the visible viewport for histogram readback / overlay
+    this._lastViewport = {
+      x: vpLeft,
+      y: vpBottom,
+      w: vpW,
+      h: vpH,
+    };
   }
 
   destroy() {

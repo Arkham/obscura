@@ -20,6 +20,7 @@ import { createRawDecoder } from '../../raw/decoder';
 import { createRgbFloatTexture } from '../../engine/texture-utils';
 import { loadSidecar, loadHistory } from '../../io/sidecar';
 import { extractMetadata, type ImageMetadata } from '../../raw/metadata';
+import { decodeInWorker } from '../../raw/worker-decode';
 import type { ExportOptions } from '../../io/export';
 import { writeFile } from '../../io/filesystem';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -47,6 +48,46 @@ export function EditorView({ onBack }: EditorViewProps) {
   const [showBefore, setShowBefore] = useState(false);
   const [isDecoding, setIsDecoding] = useState(false);
   const [metadata, setMetadata] = useState<ImageMetadata | null>(null);
+  const bufferRef = useRef<ArrayBuffer | null>(null);
+  const isFullResRef = useRef(false);
+  const fullResLoadingRef = useRef(false);
+
+  // Max full-res pixel budget (~20MP, needs ~640MB GPU for 4 RGBA16F buffers)
+  const MAX_FULL_RES_PIXELS = 20_000_000;
+  const ZOOM_THRESHOLD = 2;
+
+  const handleZoomChange = useCallback((zoom: number) => {
+    if (zoom < ZOOM_THRESHOLD || isFullResRef.current || fullResLoadingRef.current) return;
+
+    const buffer = bufferRef.current;
+    if (!buffer) return;
+
+    fullResLoadingRef.current = true;
+
+    (async () => {
+      try {
+        const decoded = await decodeInWorker(buffer, false);
+
+        // Check pixel budget after decode (worker can't crash main thread)
+        if (decoded.width * decoded.height > MAX_FULL_RES_PIXELS) {
+          console.warn('Full-res image exceeds pixel budget, keeping half-size');
+          return;
+        }
+
+        const canvas = canvasRef.current;
+        const gl = canvas?.getPipeline()?.getGL();
+        if (!canvas || !gl) return;
+
+        const tex = createRgbFloatTexture(gl, decoded.width, decoded.height, decoded.data);
+        canvas.setImage(tex, decoded.width, decoded.height);
+        isFullResRef.current = true;
+      } catch (err) {
+        console.warn('Full-res decode failed, keeping half-size:', err);
+      } finally {
+        fullResLoadingRef.current = false;
+      }
+    })();
+  }, []);
 
   // Load and decode the selected RAW file into the WebGL pipeline
   useEffect(() => {
@@ -58,6 +99,9 @@ export function EditorView({ onBack }: EditorViewProps) {
     (async () => {
       setIsDecoding(true);
       setMetadata(null);
+      bufferRef.current = null;
+      isFullResRef.current = false;
+      fullResLoadingRef.current = false;
       try {
         // Load saved edits and history from sidecar (if any) before decoding
         let savedEdits: Partial<import('../../types/edits').EditState> | null = null;
@@ -79,13 +123,14 @@ export function EditorView({ onBack }: EditorViewProps) {
 
         const file = await entry.fileHandle.getFile();
         const buffer = await file.arrayBuffer();
+        bufferRef.current = buffer;
 
         if (!cancelled) {
           setMetadata(extractMetadata(buffer));
         }
 
         const decoder = createRawDecoder();
-        const decoded = await decoder.decode(buffer, true); // halfSize for preview
+        const decoded = await decoder.decode(buffer, true); // halfSize for fast preview
 
         if (cancelled) return;
 
@@ -143,11 +188,12 @@ export function EditorView({ onBack }: EditorViewProps) {
 
   // Before/after: render default edits while Space is held
   useEffect(() => {
+    const view = canvasRef.current?.getView();
     if (showBefore) {
-      canvasRef.current?.getPipeline()?.render(createDefaultEdits());
+      canvasRef.current?.getPipeline()?.render(createDefaultEdits(), view);
     } else {
       const renderEdits = cropMode ? { ...edits, crop: null } : edits;
-      canvasRef.current?.getPipeline()?.render(renderEdits);
+      canvasRef.current?.getPipeline()?.render(renderEdits, view);
     }
   }, [showBefore, edits, cropMode]);
 
@@ -281,7 +327,7 @@ export function EditorView({ onBack }: EditorViewProps) {
           <HistoryPanel />
         </div>
         <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-          <Canvas ref={canvasRef} cropMode={cropMode} />
+          <Canvas ref={canvasRef} cropMode={cropMode} onZoomChange={handleZoomChange} />
           {isDecoding && (
             <div className={styles.decodingOverlay}>Decoding RAW...</div>
           )}
