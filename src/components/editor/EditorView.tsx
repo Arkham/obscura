@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import { Canvas, type CanvasHandle } from './Canvas';
 import { CropOverlay } from './CropOverlay';
 import { ExportDialog } from './ExportDialog';
@@ -12,6 +12,7 @@ import { EffectsPanel } from '../panels/EffectsPanel';
 import { CropPanel } from '../panels/CropPanel';
 import { useEditStore } from '../../store/editStore';
 import { useCatalogStore } from '../../store/catalogStore';
+import { createDefaultEdits } from '../../types/edits';
 import type { ExportOptions } from '../../io/export';
 import { writeFile } from '../../io/filesystem';
 import styles from './EditorView.module.css';
@@ -32,6 +33,7 @@ export function EditorView({ onBack }: EditorViewProps) {
   const [cropMode, setCropMode] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
+  const [showBefore, setShowBefore] = useState(false);
 
   const currentName = selectedIndex >= 0 && selectedIndex < entries.length
     ? entries[selectedIndex].name
@@ -58,20 +60,87 @@ export function EditorView({ onBack }: EditorViewProps) {
       const file = await entry.fileHandle.getFile();
       const buffer = await file.arrayBuffer();
 
-      // Dynamic import to keep the export module out of the main bundle
       const { exportJpeg } = await import('../../io/export');
       const { createLibRawDecoder } = await import('../../raw/decoder');
       const decoder = createLibRawDecoder();
 
       const blob = await exportJpeg(pipeline, edits, buffer, decoder, options);
 
-      // Save next to the RAW file
       const baseName = entry.name.replace(/\.[^.]+$/, '');
       const exportName = `${baseName}_edit.jpg`;
       await writeFile(dirHandle, exportName, blob);
     },
     [dirHandle, entries, selectedIndex, edits],
   );
+
+  // Before/after: render default edits while Space is held
+  useEffect(() => {
+    if (showBefore) {
+      canvasRef.current?.getPipeline()?.render(createDefaultEdits());
+    } else {
+      canvasRef.current?.getPipeline()?.render(edits);
+    }
+  }, [showBefore, edits]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't capture when typing in an input
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (selectedIndex > 0) setSelectedIndex(selectedIndex - 1);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          if (selectedIndex < entries.length - 1) setSelectedIndex(selectedIndex + 1);
+          break;
+        case 'r':
+        case 'R':
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            resetAll();
+          }
+          break;
+        case 'e':
+        case 'E':
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            setShowExport(true);
+          }
+          break;
+        case 'Escape':
+          if (showExport) {
+            setShowExport(false);
+          } else if (cropMode) {
+            setCropMode(false);
+          } else {
+            onBack();
+          }
+          break;
+        case ' ':
+          e.preventDefault();
+          setShowBefore(true);
+          break;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === ' ') {
+        setShowBefore(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [selectedIndex, entries.length, setSelectedIndex, resetAll, onBack, showExport, cropMode]);
 
   // Get canvas dimensions for crop overlay
   const pipeline = canvasRef.current?.getPipeline();
@@ -81,7 +150,10 @@ export function EditorView({ onBack }: EditorViewProps) {
     <div className={styles.editor}>
       <div className={styles.toolbar}>
         <button className={styles.backBtn} onClick={onBack}>&larr; Back</button>
-        <span className={styles.filename}>{currentName}</span>
+        <span className={styles.filename}>
+          {currentName}
+          {showBefore && <span className={styles.beforeBadge}>Before</span>}
+        </span>
         <div className={styles.toolbarActions}>
           <button className={styles.actionBtn} onClick={resetAll}>Reset</button>
           <button className={styles.actionBtn} onClick={() => setShowExport(true)}>Export</button>

@@ -39,6 +39,18 @@
   white-space: nowrap;
 }
 
+.beforeBadge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  background: var(--accent, #4a9eff);
+  color: #fff;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
 .toolbarActions {
   display: flex;
   gap: 8px;
