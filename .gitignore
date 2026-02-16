@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.worktrees/
+test-baselines/
+test-diffs/
+*.log
