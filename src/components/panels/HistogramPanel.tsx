@@ -45,13 +45,20 @@ export function HistogramPanel() {
     }
     if (peak === 0) peak = 1;
 
+    // Find the active range across all channels so the graph fills the width
+    let lo = 0;
+    let hi = 255;
+    while (lo < 255 && data.r[lo] + data.g[lo] + data.b[lo] === 0) lo++;
+    while (hi > lo && data.r[hi] + data.g[hi] + data.b[hi] === 0) hi--;
+    const span = Math.max(hi - lo, 1);
+
     const drawChannel = (bins: Float32Array, color: string, alpha: number) => {
       ctx.fillStyle = color;
       ctx.globalAlpha = alpha;
       ctx.beginPath();
       ctx.moveTo(0, h);
-      for (let i = 0; i < 256; i++) {
-        const x = (i / 255) * w;
+      for (let i = lo; i <= hi; i++) {
+        const x = ((i - lo) / span) * w;
         const val = Math.min(bins[i] / peak, 1);
         const y = h - val * h;
         ctx.lineTo(x, y);
