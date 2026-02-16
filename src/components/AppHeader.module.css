@@ -1,0 +1,55 @@
+.header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: var(--bg-secondary, #2d2d2d);
+  border-bottom: 1px solid var(--border, #404040);
+  min-height: 36px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.brandName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary, #e0e0e0);
+  letter-spacing: 0.07em;
+  margin-right: -0.07em;
+}
+
+.brandO {
+  position: relative;
+}
+
+.brandO::after {
+  content: '';
+  position: absolute;
+  width: 1.5px;
+  height: 1.5px;
+  background: currentColor;
+  border-radius: 50%;
+  top: 50%;
+  left: 45%;
+  transform: translate(-50%, 40%);
+}
+
+.center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}

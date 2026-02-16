@@ -5,6 +5,7 @@ import { openDirectory, listRawFiles } from '../../io/filesystem';
 import { fileExists } from '../../io/filesystem';
 import { extractThumbnailUrl } from '../../raw/thumbnail';
 import { ThumbnailGrid } from './ThumbnailGrid';
+import { AppHeader } from '../AppHeader';
 import styles from './CatalogView.module.css';
 
 interface CatalogViewProps {
@@ -105,8 +106,8 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
   if (!dirHandle) {
     return (
       <div className={styles.catalog}>
+        <AppHeader />
         <div className={styles.empty}>
-          <span className={styles.emptyTitle}>Fiat Lux</span>
           <span className={styles.emptyText}>RAW Photo Editor</span>
           <button className={styles.openBtn} onClick={handleOpenFolder}>
             Open Folder
@@ -118,13 +119,16 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
 
   return (
     <div className={styles.catalog}>
-      <div className={styles.header}>
-        <span className={styles.title}>Catalog</span>
-        <span className={styles.folderName}>{dirHandle.name}</span>
-        <button className={styles.openBtn} onClick={handleOpenFolder}>
-          Open Folder
-        </button>
-      </div>
+      <AppHeader
+        actions={
+          <>
+            <span className={styles.folderName}>{dirHandle.name}</span>
+            <button className={styles.openBtn} onClick={handleOpenFolder}>
+              Open Folder
+            </button>
+          </>
+        }
+      />
       {isLoading && entries.length === 0 ? (
         <div className={styles.loading}>{loadProgress}</div>
       ) : entries.length === 0 ? (

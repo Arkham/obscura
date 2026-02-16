@@ -53,7 +53,7 @@ async function readDb(dir: FileSystemDirectoryHandle): Promise<EditDb> {
     return cachedDb!;
   }
 
-  cachedDb = { version: SIDECAR_VERSION, app: 'fiat-lux', files: {} };
+  cachedDb = { version: SIDECAR_VERSION, app: 'obscura', files: {} };
   cachedDir = dir;
   return cachedDb;
 }

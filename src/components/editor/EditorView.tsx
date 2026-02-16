@@ -24,6 +24,7 @@ import { decodeInWorker } from '../../raw/worker-decode';
 import type { ExportOptions } from '../../io/export';
 import { writeFile } from '../../io/filesystem';
 import { useNotificationStore } from '../../store/notificationStore';
+import { AppHeader } from '../AppHeader';
 import styles from './EditorView.module.css';
 
 interface EditorViewProps {
@@ -311,17 +312,16 @@ export function EditorView({ onBack }: EditorViewProps) {
 
   return (
     <div className={styles.editor}>
-      <div className={styles.toolbar}>
-        <button className={styles.backBtn} onClick={onBack}>&larr; Back</button>
-        <span className={styles.filename}>
-          {currentName}
-          {showBefore && <span className={styles.beforeBadge}>Before</span>}
-        </span>
-        <div className={styles.toolbarActions}>
-          <button className={styles.actionBtn} onClick={resetAll}>Reset</button>
-          <button className={styles.actionBtn} onClick={() => setShowExport(true)}>Export</button>
-        </div>
-      </div>
+      <AppHeader
+        actions={
+          <div className={styles.toolbarActions}>
+            <button className={styles.actionBtn} onClick={resetAll}>Reset</button>
+            <button className={styles.actionBtn} onClick={() => setShowExport(true)}>Export</button>
+          </div>
+        }
+      >
+        <button className={styles.backBtn} onClick={onBack}>Back</button>
+      </AppHeader>
       <div className={styles.main}>
         <div className={styles.leftSidebar}>
           <HistoryPanel />
@@ -367,8 +367,12 @@ export function EditorView({ onBack }: EditorViewProps) {
           onClick={handlePrev}
           disabled={selectedIndex <= 0}
         >
-          &larr; Prev
+          Prev
         </button>
+        <span className={styles.filename}>
+          {currentName}
+          {showBefore && <span className={styles.beforeBadge}>Before</span>}
+        </span>
         <span className={styles.counter}>
           {entries.length > 0 ? `${selectedIndex + 1} / ${entries.length}` : ''}
         </span>
@@ -377,7 +381,7 @@ export function EditorView({ onBack }: EditorViewProps) {
           onClick={handleNext}
           disabled={selectedIndex >= entries.length - 1}
         >
-          Next &rarr;
+          Next
         </button>
       </div>
       {showExport && (
