@@ -33,7 +33,9 @@ function ThumbnailCard({
       onDoubleClick={onOpen}
     >
       <div className={styles.thumbWrapper}>
-        {entry.thumbnailUrl ? (
+        {entry.thumbnailUrl === null ? (
+          <span className={styles.placeholder}>Loading...</span>
+        ) : entry.thumbnailUrl ? (
           <img
             className={styles.thumb}
             src={entry.thumbnailUrl}
@@ -41,7 +43,7 @@ function ThumbnailCard({
             loading="lazy"
           />
         ) : (
-          <span className={styles.placeholder}>Loading...</span>
+          <span className={styles.placeholder}>No preview</span>
         )}
       </div>
       <div className={styles.info}>

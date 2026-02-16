@@ -418,22 +418,22 @@ export class RenderPipeline {
       }
     }
 
-    // Read pixels from current framebuffer
+    // Read pixels from current framebuffer (RGBA16F requires FLOAT readback)
     gl.bindFramebuffer(gl.FRAMEBUFFER, current.framebuffer);
     gl.viewport(0, 0, width, height);
 
-    // Passthrough to convert float to 8-bit via sRGB display
-    // We read the float FB directly and the browser handles the readPixels conversion
-    const pixels = new Uint8Array(width * height * 4);
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    const floatPixels = new Float32Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.FLOAT, floatPixels);
 
-    // Flip vertically (WebGL reads bottom-up)
+    // Convert float [0,1] to uint8 [0,255] and flip vertically (WebGL reads bottom-up)
     const rowSize = width * 4;
     const flipped = new Uint8ClampedArray(width * height * 4);
     for (let y = 0; y < height; y++) {
-      const srcOffset = (height - 1 - y) * rowSize;
-      const dstOffset = y * rowSize;
-      flipped.set(pixels.subarray(srcOffset, srcOffset + rowSize), dstOffset);
+      const srcRow = (height - 1 - y) * rowSize;
+      const dstRow = y * rowSize;
+      for (let x = 0; x < rowSize; x++) {
+        flipped[dstRow + x] = Math.round(Math.min(1, Math.max(0, floatPixels[srcRow + x])) * 255);
+      }
     }
 
     // Clean up temporary framebuffers
@@ -504,11 +504,51 @@ export class RenderPipeline {
       [current, alternate] = [alternate, current];
     }
 
-    // 6. Vignette → screen
-    if (!this.vignettePass(current.texture, null, gl.canvas.width, gl.canvas.height, edits)) {
-      // No vignette — passthrough to screen
-      this.passthroughPass(current.texture, null, gl.canvas.width, gl.canvas.height);
+    // 6. Final output → screen (letterboxed to preserve aspect ratio)
+    const canvasW = gl.canvas.width;
+    const canvasH = gl.canvas.height;
+    const imageAspect = this.imageWidth / this.imageHeight;
+    const canvasAspect = canvasW / canvasH;
+
+    let viewW: number, viewH: number;
+    if (imageAspect > canvasAspect) {
+      viewW = canvasW;
+      viewH = Math.round(canvasW / imageAspect);
+    } else {
+      viewH = canvasH;
+      viewW = Math.round(canvasH * imageAspect);
     }
+    const viewX = Math.round((canvasW - viewW) / 2);
+    const viewY = Math.round((canvasH - viewH) / 2);
+
+    // Clear to dark background for letterbox bars
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvasW, canvasH);
+    gl.clearColor(0.1, 0.1, 0.1, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // Render into letterboxed viewport
+    gl.viewport(viewX, viewY, viewW, viewH);
+    const hasVignette = Math.abs(edits.vignette.amount) >= 0.5;
+    if (hasVignette) {
+      const prog = this.vignetteProgram;
+      gl.useProgram(prog);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, current.texture);
+      gl.uniform1i(gl.getUniformLocation(prog, 'uSource'), 0);
+      gl.uniform1f(gl.getUniformLocation(prog, 'uAmount'), edits.vignette.amount);
+      gl.uniform1f(gl.getUniformLocation(prog, 'uMidpoint'), edits.vignette.midpoint);
+      gl.uniform1f(gl.getUniformLocation(prog, 'uRoundness'), edits.vignette.roundness);
+      gl.uniform1f(gl.getUniformLocation(prog, 'uFeather'), edits.vignette.feather);
+      const crop = edits.crop ?? { x: 0, y: 0, width: 1, height: 1 };
+      gl.uniform4f(gl.getUniformLocation(prog, 'uCropRect'), crop.x, crop.y, crop.width, crop.height);
+    } else {
+      gl.useProgram(this.passthroughProgram);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, current.texture);
+      gl.uniform1i(gl.getUniformLocation(this.passthroughProgram, 'uTexture'), 0);
+    }
+    this.drawFullscreen();
   }
 
   destroy() {

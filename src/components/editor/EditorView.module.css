@@ -126,3 +126,15 @@
   min-width: 60px;
   text-align: center;
 }
+
+.decodingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--text-primary, #e0e0e0);
+  font-size: 14px;
+  pointer-events: none;
+}

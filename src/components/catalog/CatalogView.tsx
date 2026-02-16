@@ -3,7 +3,6 @@ import { useCatalogStore } from '../../store/catalogStore';
 import type { CatalogEntry } from '../../store/catalogStore';
 import { openDirectory, listRawFiles } from '../../io/filesystem';
 import { fileExists } from '../../io/filesystem';
-import { createLibRawDecoder } from '../../raw/decoder';
 import { extractThumbnailUrl } from '../../raw/thumbnail';
 import { ThumbnailGrid } from './ThumbnailGrid';
 import styles from './CatalogView.module.css';
@@ -58,7 +57,6 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
       setEntries(withSidecars);
 
       // Extract thumbnails progressively
-      const decoder = createLibRawDecoder();
       const updatedEntries = [...withSidecars];
 
       for (let i = 0; i < rawFiles.length; i++) {
@@ -66,11 +64,13 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
         try {
           const file = await rawFiles[i].getFile();
           const buffer = await file.arrayBuffer();
-          const thumbUrl = await extractThumbnailUrl(decoder, buffer);
-          updatedEntries[i] = { ...updatedEntries[i], thumbnailUrl: thumbUrl };
+          const thumbUrl = await extractThumbnailUrl(null, buffer);
+          updatedEntries[i] = { ...updatedEntries[i], thumbnailUrl: thumbUrl ?? '' };
           setEntries([...updatedEntries]);
         } catch (err) {
           console.warn(`Failed to extract thumbnail for ${rawFiles[i].name}:`, err);
+          updatedEntries[i] = { ...updatedEntries[i], thumbnailUrl: '' };
+          setEntries([...updatedEntries]);
         }
       }
 

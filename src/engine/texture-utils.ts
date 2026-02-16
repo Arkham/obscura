@@ -20,13 +20,20 @@ export function createRgbFloatTexture(
   height: number,
   data: Float32Array
 ): WebGLTexture {
-  // Convert RGB float data to RGBA float (WebGL requires RGBA for float textures)
+  // Convert RGB float data to RGBA float, flipping Y axis.
+  // Image data (PPM, Canvas) is top-to-bottom; WebGL textures are bottom-to-top.
   const rgba = new Float32Array(width * height * 4);
-  for (let i = 0; i < width * height; i++) {
-    rgba[i * 4] = data[i * 3];
-    rgba[i * 4 + 1] = data[i * 3 + 1];
-    rgba[i * 4 + 2] = data[i * 3 + 2];
-    rgba[i * 4 + 3] = 1.0;
+  for (let y = 0; y < height; y++) {
+    const srcRow = y * width;
+    const dstRow = (height - 1 - y) * width;
+    for (let x = 0; x < width; x++) {
+      const srcIdx = (srcRow + x) * 3;
+      const dstIdx = (dstRow + x) * 4;
+      rgba[dstIdx] = data[srcIdx];
+      rgba[dstIdx + 1] = data[srcIdx + 1];
+      rgba[dstIdx + 2] = data[srcIdx + 2];
+      rgba[dstIdx + 3] = 1.0;
+    }
   }
   return createFloatTexture(gl, width, height, rgba);
 }

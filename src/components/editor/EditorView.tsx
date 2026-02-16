@@ -13,6 +13,8 @@ import { CropPanel } from '../panels/CropPanel';
 import { useEditStore } from '../../store/editStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { createDefaultEdits } from '../../types/edits';
+import { createRawDecoder } from '../../raw/decoder';
+import { createRgbFloatTexture } from '../../engine/texture-utils';
 import type { ExportOptions } from '../../io/export';
 import { writeFile } from '../../io/filesystem';
 import styles from './EditorView.module.css';
@@ -34,6 +36,42 @@ export function EditorView({ onBack }: EditorViewProps) {
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showBefore, setShowBefore] = useState(false);
+  const [isDecoding, setIsDecoding] = useState(false);
+
+  // Load and decode the selected RAW file into the WebGL pipeline
+  useEffect(() => {
+    if (selectedIndex < 0 || selectedIndex >= entries.length) return;
+
+    const entry = entries[selectedIndex];
+    let cancelled = false;
+
+    (async () => {
+      setIsDecoding(true);
+      try {
+        const file = await entry.fileHandle.getFile();
+        const buffer = await file.arrayBuffer();
+
+        const decoder = createRawDecoder();
+        const decoded = await decoder.decode(buffer, true); // halfSize for preview
+
+        if (cancelled) return;
+
+        const pipeline = canvasRef.current?.getPipeline();
+        if (!pipeline) return;
+
+        const gl = pipeline.getGL();
+        const tex = createRgbFloatTexture(gl, decoded.width, decoded.height, decoded.data);
+        pipeline.setSourceTexture(tex, decoded.width, decoded.height);
+        pipeline.render(edits);
+      } catch (err) {
+        console.error(`Failed to decode ${entry.name}:`, err);
+      } finally {
+        if (!cancelled) setIsDecoding(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedIndex, entries]);
 
   const currentName = selectedIndex >= 0 && selectedIndex < entries.length
     ? entries[selectedIndex].name
@@ -61,8 +99,8 @@ export function EditorView({ onBack }: EditorViewProps) {
       const buffer = await file.arrayBuffer();
 
       const { exportJpeg } = await import('../../io/export');
-      const { createLibRawDecoder } = await import('../../raw/decoder');
-      const decoder = createLibRawDecoder();
+      const { createRawDecoder } = await import('../../raw/decoder');
+      const decoder = createRawDecoder();
 
       const blob = await exportJpeg(pipeline, edits, buffer, decoder, options);
 
@@ -162,6 +200,9 @@ export function EditorView({ onBack }: EditorViewProps) {
       <div className={styles.main}>
         <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
           <Canvas ref={canvasRef} />
+          {isDecoding && (
+            <div className={styles.decodingOverlay}>Decoding RAW...</div>
+          )}
           <CropOverlay
             active={cropMode}
             aspectRatio={aspectRatio}
