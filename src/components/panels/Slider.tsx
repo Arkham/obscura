@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { setSliderDragging } from '../../store/editStore';
 import styles from './Slider.module.css';
 
 interface SliderProps {
@@ -99,6 +100,8 @@ export function Slider({ label, value, min, max, step, defaultValue, onChange }:
           step={step}
           value={value}
           onChange={(e) => onChange(parseFloat(e.target.value))}
+          onPointerDown={() => setSliderDragging(true)}
+          onPointerUp={() => setSliderDragging(false)}
           onDoubleClick={handleDoubleClickTrack}
         />
       </div>

@@ -95,12 +95,16 @@ let _pendingParam: string | null = null;
 let _historyTimer: ReturnType<typeof setTimeout> | null = null;
 /** Flag to suppress history pushes during undo/redo */
 let _isNavigating = false;
+/** Flag to suppress history pushes while a slider is being dragged */
+let _isDragging = false;
 
 /**
  * Flush any pending slider drag into a history entry.
  * Only creates an entry if the edits actually changed from the last history snapshot.
  */
 function flushPending() {
+  if (_isDragging) return;
+
   if (_historyTimer) {
     clearTimeout(_historyTimer);
     _historyTimer = null;
@@ -136,6 +140,12 @@ function flushPending() {
   history.push({ edits: structuredClone(state.edits), label, timestamp: Date.now() });
   if (history.length > MAX_HISTORY) history.shift();
   useEditStore.setState({ history, historyIndex: history.length - 1 });
+}
+
+/** Call from slider pointerdown/pointerup to defer history until release */
+export function setSliderDragging(dragging: boolean) {
+  _isDragging = dragging;
+  if (!dragging) flushPending();
 }
 
 export const useEditStore = create<EditStoreState>((set, get) => ({
