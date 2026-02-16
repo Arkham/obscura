@@ -4,6 +4,7 @@ import { bakeCurveLut, uploadLutTexture } from './lut';
 import passthroughVert from './shaders/passthrough.vert';
 import passthroughFrag from './shaders/passthrough.frag';
 import mainFrag from './shaders/main.frag';
+import blurFrag from './shaders/blur.frag';
 
 function compileShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type)!;
@@ -37,6 +38,7 @@ export class RenderPipeline {
   private gl: WebGL2RenderingContext;
   private passthroughProgram: WebGLProgram;
   private mainProgram: WebGLProgram;
+  private blurProgram: WebGLProgram;
   private vao: WebGLVertexArrayObject;
   private sourceTexture: WebGLTexture | null = null;
   private imageWidth = 0;
@@ -51,6 +53,7 @@ export class RenderPipeline {
   // Intermediate framebuffers for multi-pass
   private fbA: { framebuffer: WebGLFramebuffer; texture: WebGLTexture } | null = null;
   private fbB: { framebuffer: WebGLFramebuffer; texture: WebGLTexture } | null = null;
+  private fbTemp: { framebuffer: WebGLFramebuffer; texture: WebGLTexture } | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', {
@@ -67,6 +70,7 @@ export class RenderPipeline {
     this.gl = gl;
     this.passthroughProgram = createProgram(gl, passthroughVert, passthroughFrag);
     this.mainProgram = createProgram(gl, passthroughVert, mainFrag);
+    this.blurProgram = createProgram(gl, passthroughVert, blurFrag);
 
     // Empty VAO for attribute-less rendering (fullscreen triangle)
     this.vao = gl.createVertexArray()!;
@@ -102,8 +106,13 @@ export class RenderPipeline {
       gl.deleteFramebuffer(this.fbB.framebuffer);
       gl.deleteTexture(this.fbB.texture);
     }
+    if (this.fbTemp) {
+      gl.deleteFramebuffer(this.fbTemp.framebuffer);
+      gl.deleteTexture(this.fbTemp.texture);
+    }
     this.fbA = createFramebuffer(gl, width, height);
     this.fbB = createFramebuffer(gl, width, height);
+    this.fbTemp = createFramebuffer(gl, width, height);
   }
 
   private updateCurveLuts(edits: EditState) {
@@ -190,6 +199,46 @@ export class RenderPipeline {
     this.drawFullscreen();
   }
 
+  /**
+   * Two-pass separable gaussian blur.
+   * Blurs `source` texture at the given radius, writing result to `target`.
+   * Uses fbTemp internally for the intermediate horizontal pass.
+   */
+  blurPass(
+    source: WebGLTexture,
+    target: { framebuffer: WebGLFramebuffer; texture: WebGLTexture },
+    width: number,
+    height: number,
+    radius: number
+  ) {
+    const { gl } = this;
+    if (!this.fbTemp) return;
+
+    const prog = this.blurProgram;
+    gl.useProgram(prog);
+
+    const locSource = gl.getUniformLocation(prog, 'uSource');
+    const locDirection = gl.getUniformLocation(prog, 'uDirection');
+    const locRadius = gl.getUniformLocation(prog, 'uRadius');
+
+    // Horizontal pass: source → fbTemp
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbTemp.framebuffer);
+    gl.viewport(0, 0, width, height);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, source);
+    gl.uniform1i(locSource, 0);
+    gl.uniform2f(locDirection, 1.0 / width, 0.0);
+    gl.uniform1f(locRadius, radius);
+    this.drawFullscreen();
+
+    // Vertical pass: fbTemp → target
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+    gl.viewport(0, 0, width, height);
+    gl.bindTexture(gl.TEXTURE_2D, this.fbTemp.texture);
+    gl.uniform2f(locDirection, 0.0, 1.0 / height);
+    this.drawFullscreen();
+  }
+
   render(edits: EditState) {
     const { gl } = this;
     if (!this.sourceTexture || !this.fbA) return;
@@ -217,6 +266,7 @@ export class RenderPipeline {
     const { gl } = this;
     gl.deleteProgram(this.passthroughProgram);
     gl.deleteProgram(this.mainProgram);
+    gl.deleteProgram(this.blurProgram);
     gl.deleteVertexArray(this.vao);
     gl.deleteTexture(this.curveRGB);
     gl.deleteTexture(this.curveR);
@@ -230,6 +280,10 @@ export class RenderPipeline {
     if (this.fbB) {
       gl.deleteFramebuffer(this.fbB.framebuffer);
       gl.deleteTexture(this.fbB.texture);
+    }
+    if (this.fbTemp) {
+      gl.deleteFramebuffer(this.fbTemp.framebuffer);
+      gl.deleteTexture(this.fbTemp.texture);
     }
   }
 }
