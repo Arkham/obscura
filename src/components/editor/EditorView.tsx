@@ -251,22 +251,14 @@ export function EditorView({ onBack }: EditorViewProps) {
           break;
         case ' ':
           e.preventDefault();
-          setShowBefore(true);
+          setShowBefore((v) => !v);
           break;
       }
     };
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === ' ') {
-        setShowBefore(false);
-      }
-    };
-
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [selectedIndex, entries.length, setSelectedIndex, resetAll, onBack, showExport, cropMode]);
 
