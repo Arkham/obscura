@@ -1,73 +1,92 @@
-# React + TypeScript + Vite
+# obscura
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A browser-based RAW photo editor with a real-time WebGL2 rendering pipeline.
 
-Currently, two official plugins are available:
+Open a folder of RAW files, adjust exposure, color, and tone, and export edited JPEGs — all without leaving the browser. No uploads, no servers. Everything runs locally.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+**Non-destructive editing** with full undo/redo history and automatic sidecar persistence.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Basic adjustments** — white balance, tint, exposure, contrast, highlights, shadows, whites, blacks
+- **Presence** — texture, clarity, dehaze, vibrance, saturation
+- **Tone curves** — per-channel (R, G, B) and combined RGB curves with draggable control points
+- **HSL** — hue, saturation, and luminance adjustments across 8 color ranges
+- **Color grading** — interactive color wheels for shadows, midtones, highlights, and global
+- **Sharpening** — unsharp mask with amount, radius, and detail threshold
+- **Noise reduction** — luminance and color denoising
+- **Vignette** — amount, midpoint, roundness, feather
+- **Crop** — interactive overlay with aspect ratio lock
+- **JPEG export** — configurable quality with optional white or black border
+- **Before/after** — toggle to compare against the unedited original
+- **Real-time histogram** — log-scaled RGB and luminance display
 
-## Expanding the ESLint configuration
+## Supported formats
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+ARW (Sony), CR2/CR3 (Canon), DNG (Adobe), NEF (Nikon), PEF (Pentax), RAF (Fujifilm).
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+RAW decoding is handled by [dcraw.js](https://github.com/zfedoran/dcraw.js) compiled to asm.js.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## How it works
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Obscura uses the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) to read RAW files directly from disk.
+
+The rendering pipeline is a multi-pass WebGL2 shader chain:
+
+1. **Main pass** — white balance, exposure, contrast, tone curves (LUT-based), HSL, color grading
+2. **Dehaze** — atmospheric haze removal
+3. **Clarity/Texture** — high-pass filtering via separable Gaussian blur
+4. **Sharpening** — unsharp mask at configurable radius
+5. **Denoise** — spatial noise reduction
+6. **Vignette** — corner darkening with crop awareness
+7. **Output** — letterboxed to canvas with zoom and pan
+
+All intermediate buffers use RGBA16F for full floating-point precision. Passes are skipped when their parameters are at default values.
+
+Images load at half resolution for fast preview. When you zoom past 2x, a Web Worker decodes the full-resolution image in the background and swaps it in seamlessly.
+
+Edits are saved automatically to a `db.json` sidecar file alongside your RAW files. Only parameters that differ from defaults are stored.
+
+## Getting started
+
+```
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open [localhost:5173](http://localhost:5173) in Chrome or Edge (requires File System Access API support).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Click **Open Folder** and select a directory containing RAW files.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Cmd/Ctrl + Z` | Undo |
+| `Cmd/Ctrl + Shift + Z` | Redo |
+| `Left / Right` | Previous / next image |
+| `R` | Reset all edits |
+| `E` | Export dialog |
+| `Space` | Toggle before/after |
+| `Esc` | Close dialog / exit crop / back to catalog |
+| `Double-click` | Fit image to canvas |
+| `Scroll` | Zoom |
+
+## Running tests
+
 ```
+npm test
+```
+
+## Tech stack
+
+- React 19 + TypeScript 5.9
+- Vite 7
+- Zustand 5
+- WebGL2 + GLSL
+- dcraw.js
+- Vitest
+
+## License
+
+MIT
