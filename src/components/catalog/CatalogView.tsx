@@ -205,14 +205,15 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
                 Open a folder to get started
                 {recentFolders.length === 0 && (
                   <>
-                    {' — or try a '}
-                    <button
-                      className={styles.demoLink}
-                      onClick={handleTryDemo}
-                      disabled={demoLoading}
-                    >
-                      {demoLoading ? 'loading...' : 'demo'}
-                    </button>
+                    {demoLoading ? ' — loading demo...' : ' — or try a '}
+                    {!demoLoading && (
+                      <button
+                        className={styles.demoLink}
+                        onClick={handleTryDemo}
+                      >
+                        demo
+                      </button>
+                    )}
                   </>
                 )}
               </span>
