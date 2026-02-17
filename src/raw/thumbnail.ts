@@ -33,8 +33,34 @@ export function extractEmbeddedJpeg(data: Uint8Array): Blob | null {
 
   if (candidates.length === 0) return null;
 
-  // Pick the largest embedded JPEG (usually the full-size preview)
-  const best = candidates.reduce((a, b) =>
+  // Filter to displayable JPEGs only. Some RAW formats (e.g. PEF) embed
+  // lossless JPEG-compressed sensor data that starts with SOI markers but
+  // isn't browser-renderable. We validate by finding a SOF marker and
+  // checking that the stated dimensions are reasonable (≤ 65535 pixels
+  // per side, which is the JPEG spec max, and that the size-to-pixel
+  // ratio is consistent with actual JPEG compression).
+  const displayable = candidates.filter((c) => {
+    const searchEnd = Math.min(c.start + 65536, c.end - 1);
+    for (let k = c.start + 2; k < searchEnd; k++) {
+      if (data[k] === 0xff) {
+        const m = data[k + 1];
+        if (m === 0xc0 || m === 0xc1 || m === 0xc2) {
+          const h = (data[k + 5] << 8) | data[k + 6];
+          const w = (data[k + 7] << 8) | data[k + 8];
+          if (w === 0 || h === 0 || w > 16384 || h > 16384) return false;
+          const pixels = w * h;
+          const bpp = (c.end - c.start) / pixels;
+          // Real JPEGs: ~0.03–2 bytes/pixel; raw data blobs are way outside
+          return bpp >= 0.01 && bpp <= 5;
+        }
+      }
+    }
+    return false;
+  });
+
+  // Pick the largest displayable JPEG (usually the full-size preview)
+  const pool = displayable.length > 0 ? displayable : candidates;
+  const best = pool.reduce((a, b) =>
     (b.end - b.start) > (a.end - a.start) ? b : a,
   );
 

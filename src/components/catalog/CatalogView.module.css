@@ -65,6 +65,15 @@
   cursor: pointer;
   padding: 4px 12px;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recentTime {
+  font-size: 11px;
+  color: var(--text-secondary, #a0a0a0);
+  opacity: 0.6;
 }
 
 .recentItem:hover {

@@ -9,6 +9,18 @@ import { ThumbnailGrid } from './ThumbnailGrid';
 import { AppHeader } from '../AppHeader';
 import styles from './CatalogView.module.css';
 
+function formatRelativeTime(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
+
 interface CatalogViewProps {
   onOpenEditor: (index: number) => void;
 }
@@ -143,7 +155,8 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
                   className={styles.recentItem}
                   onClick={() => handleOpenRecent(f.handle)}
                 >
-                  {f.name}
+                  <span>{f.name}</span>
+                  <span className={styles.recentTime}>{formatRelativeTime(f.lastOpened)}</span>
                 </button>
               ))}
             </div>
