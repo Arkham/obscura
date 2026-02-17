@@ -138,11 +138,11 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
     [setSelectedIndex, onOpenEditor],
   );
 
-  if (!dirHandle) {
-    return (
-      <div className={styles.catalog}>
-        <AppHeader />
-        <div className={styles.empty}>
+  return (
+    <div className={styles.catalog}>
+      <AppHeader />
+      <div className={styles.body}>
+        <div className={styles.sidebar}>
           <button className={styles.openBtn} onClick={handleOpenFolder}>
             Open Folder
           </button>
@@ -153,52 +153,44 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
                 <button
                   key={f.name}
                   className={styles.recentItem}
+                  data-active={dirHandle?.name === f.name}
                   onClick={() => handleOpenRecent(f.handle)}
                 >
-                  <span>{f.name}</span>
+                  <span className={styles.recentName}>{f.name}</span>
                   <span className={styles.recentTime}>{formatRelativeTime(f.lastOpened)}</span>
                 </button>
               ))}
             </div>
           )}
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.catalog}>
-      <AppHeader
-        actions={
-          <>
-            <span className={styles.folderName}>{dirHandle.name}</span>
-            <button className={styles.openBtn} onClick={handleOpenFolder}>
-              Open Folder
-            </button>
-          </>
-        }
-      />
-      {isLoading && entries.length === 0 ? (
-        <div className={styles.loading}>{loadProgress}</div>
-      ) : entries.length === 0 ? (
-        <div className={styles.empty}>
-          <span className={styles.emptyText}>No RAW files found in this folder</span>
-        </div>
-      ) : (
-        <div className={styles.content}>
-          {isLoading && (
-            <div style={{ fontSize: 12, color: 'var(--text-secondary, #a0a0a0)', marginBottom: 8 }}>
-              {loadProgress}
+        <div className={styles.main}>
+          {!dirHandle ? (
+            <div className={styles.empty}>
+              <span className={styles.emptyText}>Open a folder to get started</span>
+            </div>
+          ) : isLoading && entries.length === 0 ? (
+            <div className={styles.loading}>{loadProgress}</div>
+          ) : entries.length === 0 ? (
+            <div className={styles.empty}>
+              <span className={styles.emptyText}>No RAW files found in this folder</span>
+            </div>
+          ) : (
+            <div className={styles.content}>
+              {isLoading && (
+                <div style={{ fontSize: 12, color: 'var(--text-secondary, #a0a0a0)', marginBottom: 8 }}>
+                  {loadProgress}
+                </div>
+              )}
+              <ThumbnailGrid
+                entries={entries}
+                selectedIndex={selectedIndex}
+                onSelect={handleSelect}
+                onOpen={handleOpen}
+              />
             </div>
           )}
-          <ThumbnailGrid
-            entries={entries}
-            selectedIndex={selectedIndex}
-            onSelect={handleSelect}
-            onOpen={handleOpen}
-          />
         </div>
-      )}
+      </div>
     </div>
   );
 }
