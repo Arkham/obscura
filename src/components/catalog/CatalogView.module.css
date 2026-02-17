@@ -113,6 +113,26 @@
   font-size: 14px;
 }
 
+.demoLink {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #a0a0a0);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.demoLink:hover {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.demoLink:disabled {
+  cursor: wait;
+  text-decoration: none;
+}
+
 .loading {
   flex: 1;
   display: flex;

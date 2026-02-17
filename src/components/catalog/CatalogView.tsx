@@ -42,6 +42,7 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [loadProgress, setLoadProgress] = useState('');
   const [recentFolders, setRecentFolders] = useState<RecentEntry[]>([]);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   useEffect(() => {
     getRecentFolders().then(setRecentFolders);
@@ -123,6 +124,40 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
     }
   }, [loadFolder]);
 
+  const DEMO_URL =
+    'https://upload.wikimedia.org/wikipedia/commons/9/99/Joseph_Mallord_William_Turner_%28British_-_Modern_Rome-Campo_Vaccino_-_Google_Art_Project.jpg';
+
+  const handleTryDemo = useCallback(async () => {
+    setDemoLoading(true);
+    try {
+      const res = await fetch(DEMO_URL);
+      const buffer = await res.arrayBuffer();
+      const file = new File([buffer], 'modern-rome.jpg', { type: 'image/jpeg' });
+      const thumbUrl = URL.createObjectURL(file);
+
+      const mockHandle = {
+        kind: 'file' as const,
+        name: 'modern-rome.jpg',
+        getFile: async () => file,
+      } as unknown as FileSystemFileHandle;
+
+      const entry: CatalogEntry = {
+        name: 'modern-rome.jpg',
+        fileHandle: mockHandle,
+        thumbnailUrl: thumbUrl,
+        hasSidecar: false,
+      };
+
+      setEntries([entry]);
+      setSelectedIndex(0);
+      onOpenEditor(0);
+    } catch (err) {
+      console.error('Failed to load demo image:', err);
+    } finally {
+      setDemoLoading(false);
+    }
+  }, [setEntries, setSelectedIndex, onOpenEditor]);
+
   const handleSelect = useCallback(
     (index: number) => {
       setSelectedIndex(index);
@@ -167,6 +202,15 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
           {!dirHandle ? (
             <div className={styles.empty}>
               <span className={styles.emptyText}>Open a folder to get started</span>
+              {recentFolders.length === 0 && (
+                <button
+                  className={styles.demoLink}
+                  onClick={handleTryDemo}
+                  disabled={demoLoading}
+                >
+                  {demoLoading ? 'Loading demo...' : 'or try a demo'}
+                </button>
+              )}
             </div>
           ) : isLoading && entries.length === 0 ? (
             <div className={styles.loading}>{loadProgress}</div>
