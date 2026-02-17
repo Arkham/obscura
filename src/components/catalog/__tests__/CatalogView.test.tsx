@@ -38,9 +38,9 @@ describe('CatalogView', () => {
     vi.clearAllMocks();
   });
 
-  it('shows "or try a demo" when no recent folders exist', async () => {
+  it('shows demo link when no recent folders exist', async () => {
     render(<CatalogView onOpenEditor={vi.fn()} />);
     // Wait for the async getRecentFolders to resolve
-    expect(await screen.findByText('or try a demo')).toBeInTheDocument();
+    expect(await screen.findByText('demo')).toBeInTheDocument();
   });
 });

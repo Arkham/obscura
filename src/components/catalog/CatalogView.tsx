@@ -201,16 +201,21 @@ export function CatalogView({ onOpenEditor }: CatalogViewProps) {
         <div className={styles.main}>
           {!dirHandle ? (
             <div className={styles.empty}>
-              <span className={styles.emptyText}>Open a folder to get started</span>
-              {recentFolders.length === 0 && (
-                <button
-                  className={styles.demoLink}
-                  onClick={handleTryDemo}
-                  disabled={demoLoading}
-                >
-                  {demoLoading ? 'Loading demo...' : 'or try a demo'}
-                </button>
-              )}
+              <span className={styles.emptyText}>
+                Open a folder to get started
+                {recentFolders.length === 0 && (
+                  <>
+                    {' — or try a '}
+                    <button
+                      className={styles.demoLink}
+                      onClick={handleTryDemo}
+                      disabled={demoLoading}
+                    >
+                      {demoLoading ? 'loading...' : 'demo'}
+                    </button>
+                  </>
+                )}
+              </span>
             </div>
           ) : isLoading && entries.length === 0 ? (
             <div className={styles.loading}>{loadProgress}</div>

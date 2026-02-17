@@ -117,7 +117,7 @@
   background: none;
   border: none;
   color: var(--text-secondary, #a0a0a0);
-  font-size: 13px;
+  font: inherit;
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
