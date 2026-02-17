@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import type { CatalogEntry } from '../../store/catalogStore';
 import styles from './ThumbnailGrid.module.css';
 
@@ -11,13 +11,11 @@ interface ThumbnailGridProps {
 
 function ThumbnailCard({
   entry,
-  index,
   isSelected,
   onSelect,
   onOpen,
 }: {
   entry: CatalogEntry;
-  index: number;
   isSelected: boolean;
   onSelect: () => void;
   onOpen: () => void;
@@ -61,7 +59,6 @@ export function ThumbnailGrid({ entries, selectedIndex, onSelect, onOpen }: Thum
         <ThumbnailCard
           key={entry.name}
           entry={entry}
-          index={i}
           isSelected={i === selectedIndex}
           onSelect={() => onSelect(i)}
           onOpen={() => onOpen(i)}

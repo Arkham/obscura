@@ -40,7 +40,7 @@ describe('ColorWheel', () => {
     fireEvent.mouseDown(svg!, { clientX: 90, clientY: 50 });
     expect(onChange).toHaveBeenCalled();
 
-    const [hue, sat] = [onChange.mock.calls[0][0], onChange.mock.calls[0][1]];
+    const [_hue, sat] = [onChange.mock.calls[0][0], onChange.mock.calls[0][1]];
     expect(sat).toBeGreaterThan(0);
   });
 

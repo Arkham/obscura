@@ -67,7 +67,7 @@ export function extractEmbeddedJpeg(data: Uint8Array): Blob | null {
   // Minimum size sanity check — a valid JPEG preview is at least a few KB
   if (best.end - best.start < 1000) return null;
 
-  return new Blob([data.subarray(best.start, best.end)], { type: 'image/jpeg' });
+  return new Blob([data.subarray(best.start, best.end) as BlobPart], { type: 'image/jpeg' });
 }
 
 export async function extractThumbnailUrl(

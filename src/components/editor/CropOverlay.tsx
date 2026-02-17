@@ -26,7 +26,7 @@ function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v));
 }
 
-export function CropOverlay({ active, aspectRatio, viewport, onDone }: CropOverlayProps) {
+export function CropOverlay({ active, aspectRatio, viewport, onDone: _onDone }: CropOverlayProps) {
   const setParam = useEditStore((s) => s.setParam);
   const crop = useEditStore((s) => s.edits.crop);
 

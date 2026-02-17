@@ -82,12 +82,6 @@ export function ColorWheel({ label, hue, saturation, luminance, onChange }: Colo
     onChange(0, 0, luminance);
   }, [luminance, onChange]);
 
-  // Build conic gradient stops for the hue ring
-  const ringStops = Array.from({ length: 13 }, (_, i) => {
-    const h = (i * 30) % 360;
-    return `hsl(${h}, 70%, 50%) ${(i / 12) * 100}%`;
-  }).join(', ');
-
   return (
     <div className={styles.wheel}>
       <span className={styles.label}>{label}</span>

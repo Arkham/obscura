@@ -1,6 +1,6 @@
 import type { RenderPipeline } from '../engine/pipeline';
 import type { EditState } from '../types/edits';
-import type { DecodedImage, RawDecoder } from '../raw/decoder';
+import type { RawDecoder } from '../raw/decoder';
 import { createRgbFloatTexture } from '../engine/texture-utils';
 
 export interface ExportOptions {
