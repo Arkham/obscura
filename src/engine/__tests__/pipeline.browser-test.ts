@@ -65,10 +65,10 @@ describe('RenderPipeline (browser)', () => {
     pipeline.setSourceTexture(tex, 64, 64);
     pipeline.render(createDefaultEdits());
 
-    // Left edge should be near black
+    // Left edge should be near black (x=1/63 ≈ 0.016 linear → ~34 sRGB)
     const leftPixel = new Uint8Array(4);
     gl.readPixels(1, 32, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, leftPixel);
-    expect(leftPixel[0]).toBeLessThan(20);
+    expect(leftPixel[0]).toBeLessThan(50);
 
     // Right edge should be near white
     const rightPixel = new Uint8Array(4);
@@ -92,5 +92,36 @@ describe('RenderPipeline (browser)', () => {
     // R, G, B should be approximately equal (grayscale)
     expect(Math.abs(pixel[0] - pixel[1])).toBeLessThan(5);
     expect(Math.abs(pixel[1] - pixel[2])).toBeLessThan(5);
+  });
+
+  it('visual regression: gradient + exposure produces expected pixel values', () => {
+    const { canvas, pipeline } = createTestPipeline();
+    const gl = canvas.getContext('webgl2')!;
+    const data = createGradientData(64, 64);
+    const tex = createFloatTexture(gl, 64, 64, data);
+    pipeline.setSourceTexture(tex, 64, 64);
+
+    const edits = createDefaultEdits();
+    edits.exposure = 0.5;
+    pipeline.render(edits);
+
+    // Read a few known pixels and verify they fall in expected ranges
+    // Center pixel of a gradient with +0.5EV exposure
+    const center = new Uint8Array(4);
+    gl.readPixels(32, 32, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, center);
+    // Mid-gray (0.5) boosted by +0.5EV ≈ 0.707 linear ≈ ~218 sRGB
+    expect(center[0]).toBeGreaterThan(200);
+    expect(center[0]).toBeLessThan(235);
+
+    // Near-black region (left edge) should still be dark
+    // x=2/63 ≈ 0.032 linear, +0.5EV → ~0.045 linear → ~60 sRGB
+    const left = new Uint8Array(4);
+    gl.readPixels(2, 32, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, left);
+    expect(left[0]).toBeLessThan(80);
+
+    // Near-white region (right edge) should be nearly saturated
+    const right = new Uint8Array(4);
+    gl.readPixels(62, 32, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, right);
+    expect(right[0]).toBeGreaterThan(245);
   });
 });
