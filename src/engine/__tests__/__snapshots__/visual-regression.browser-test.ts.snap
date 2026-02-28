@@ -1,0 +1,89 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`visual regression snapshots > HSL adjustments > hue shift red +30 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > HSL adjustments > luminance blue -30 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > HSL adjustments > saturation green +40 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > color grading > highlight tint warm 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > color grading > midtone + global tint 1`] = `"86f8ea0cdc27e4372e63412cda5e69cda03b0ee3f1bc2ff429ad44ea27ac13f7"`;
+
+exports[`visual regression snapshots > color grading > shadow tint blue 1`] = `"0c3df00dbc98b6d7fbb814a8585d53aa5d1555aee76759ed564a99b60542004e"`;
+
+exports[`visual regression snapshots > combined effects > exposure + contrast + saturation + vignette 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > combined effects > full edit stack: WB + exposure + HSL + curves + grading + sharpening 1`] = `"9c38058d8abac6ce5e24328dd8db19abdd62df090477261440951902ffa12e87"`;
+
+exports[`visual regression snapshots > detail effects > clarity +50 1`] = `"41a87ad79a405529ed3667838848f4091fd6ecbdd68f69ebeaa816c44fbda26e"`;
+
+exports[`visual regression snapshots > detail effects > noise reduction luminance 50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > detail effects > sharpening amount 80 1`] = `"2c0b40c8c8ea39c641fd16c8eb278a3b8e19a70cc610be7b41ffe1f79a8747d6"`;
+
+exports[`visual regression snapshots > detail effects > texture +50 1`] = `"41a87ad79a405529ed3667838848f4091fd6ecbdd68f69ebeaa816c44fbda26e"`;
+
+exports[`visual regression snapshots > individual effects > blacks -50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > individual effects > contrast +50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > individual effects > dehaze +50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > individual effects > exposure +1 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > individual effects > exposure -1 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > individual effects > highlights +50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > individual effects > saturation +50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > individual effects > shadows +50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > individual effects > vibrance +50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > individual effects > white balance 3500K 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > individual effects > whites +50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > presets > preset acros 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > presets > preset acros-g 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > presets > preset acros-r 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > presets > preset acros-ye 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > presets > preset astia 1`] = `"41ebda7ed2980ffc761d8cba5b58879b95cd934396ab28c5d1ef55a92b997146"`;
+
+exports[`visual regression snapshots > presets > preset classic-chrome 1`] = `"b20a3a654f137dfe4154175a51f798b08f8a35d8c744752375c4f61ca8062c16"`;
+
+exports[`visual regression snapshots > presets > preset classic-negative 1`] = `"e2524c8bf84ced0a153f11bec630448eac03f3788ca68cb75cae0faa915bbc7a"`;
+
+exports[`visual regression snapshots > presets > preset eterna 1`] = `"ade6e15d6c744bd3fc52e347fa4e35fd90b10fcb6ca55127bed239c5c9e04226"`;
+
+exports[`visual regression snapshots > presets > preset eterna-bleach-bypass 1`] = `"a10bcc767ea947e8f78de2613b945849b6cd19a5727cabf561a947aeb774ad27"`;
+
+exports[`visual regression snapshots > presets > preset monochrome 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > presets > preset nostalgic-negative 1`] = `"2d8257dccb815b341ecbcd64792bf4af68e79b211cc15fff2cedd52f431bf7bf"`;
+
+exports[`visual regression snapshots > presets > preset pro-neg-hi 1`] = `"b1e335d51c712b1d5472b327105c1a8cef9845a485ae457c778abaa4e4fd1181"`;
+
+exports[`visual regression snapshots > presets > preset pro-neg-std 1`] = `"c5797157f3ec4f74bde676649da378ff6f05152dd745ff9f625496e9e2365df6"`;
+
+exports[`visual regression snapshots > presets > preset provia 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > presets > preset reala-ace 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > presets > preset sepia 1`] = `"db0efdbcc72c99f4058ace6d37577dba25f01a7d6ca29c6e271fdedfc1fa48a5"`;
+
+exports[`visual regression snapshots > presets > preset velvia 1`] = `"1ad5c66f476fbbd6403add85f9d6910c66329be444e9c110fa3aceb5ecc23ff5"`;
+
+exports[`visual regression snapshots > tone curves > S-curve on gradient 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > tone curves > red channel lift 1`] = `"3699c79d3acdbcb77fcd90001a1052c7a116e65a84e25e6d8bb9fc13845eea3a"`;
+
+exports[`visual regression snapshots > vignette > vignette +50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
+
+exports[`visual regression snapshots > vignette > vignette -50 1`] = `"df894663e850afa3619ed3d3825d9d1c6520f15fcd76aac25c4407c405fa8cfe"`;
