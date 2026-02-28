@@ -44,4 +44,28 @@ describe('editStore', () => {
     expect(edits.exposure).toBe(0);
     expect(edits.contrast).toBe(0);
   });
+
+  it('applyPreset replaces edits with preset merged onto defaults', () => {
+    // Set some edits first
+    useEditStore.getState().setParam('exposure', 2.0);
+
+    const preset = {
+      id: 'test',
+      name: 'Test Preset',
+      description: 'test',
+      edits: { contrast: 30, saturation: -20 },
+    };
+
+    useEditStore.getState().applyPreset(preset);
+
+    const state = useEditStore.getState();
+    // Preset values applied
+    expect(state.edits.contrast).toBe(30);
+    expect(state.edits.saturation).toBe(-20);
+    // Non-preset values reset to defaults (not preserved from prior edits)
+    expect(state.edits.exposure).toBe(0);
+    // History entry created
+    const lastEntry = state.history[state.historyIndex];
+    expect(lastEntry.label).toBe('Preset: Test Preset');
+  });
 });

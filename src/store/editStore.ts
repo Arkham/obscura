@@ -85,6 +85,7 @@ interface EditStoreState {
   loadEdits: (edits: Partial<EditState>, savedHistory?: SavedHistory | null) => void;
   resetAll: () => void;
   setAutoSaveTarget: (dir: FileSystemDirectoryHandle | null, fileName: string | null) => void;
+  applyPreset: (preset: { name: string; edits: Partial<EditState> }) => void;
   undo: () => void;
   redo: () => void;
   jumpToHistory: (index: number) => void;
@@ -243,6 +244,31 @@ export const useEditStore = create<EditStoreState>((set, get) => ({
     } else {
       set({ edits: defaultEdits, isDirty: true });
     }
+  },
+
+  applyPreset: (preset) => {
+    flushPending();
+    const state = get();
+    const defaults = createDefaultEdits();
+    // Deep merge: for each key in preset.edits, if both default and preset value
+    // are plain objects (not arrays, not null), spread-merge them; otherwise use preset value.
+    const merged = { ...defaults };
+    for (const [key, value] of Object.entries(preset.edits)) {
+      const k = key as keyof EditState;
+      const defaultVal = defaults[k];
+      if (
+        value !== null && typeof value === 'object' && !Array.isArray(value) &&
+        defaultVal !== null && typeof defaultVal === 'object' && !Array.isArray(defaultVal)
+      ) {
+        (merged as Record<string, unknown>)[key] = { ...defaultVal as Record<string, unknown>, ...value as Record<string, unknown> };
+      } else {
+        (merged as Record<string, unknown>)[key] = value;
+      }
+    }
+    const history = state.history.slice(0, state.historyIndex + 1);
+    history.push({ edits: structuredClone(merged), label: `Preset: ${preset.name}`, timestamp: Date.now() });
+    if (history.length > MAX_HISTORY) history.shift();
+    set({ edits: merged, isDirty: true, history, historyIndex: history.length - 1 });
   },
 
   setAutoSaveTarget: (dir, fileName) =>
