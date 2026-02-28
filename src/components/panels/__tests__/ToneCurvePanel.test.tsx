@@ -33,6 +33,42 @@ describe('ToneCurvePanel', () => {
     expect(redTab.getAttribute('data-active')).toBe('true');
   });
 
+  it('shows reset button when channel is modified and resets on click', () => {
+    // Modify the red channel curve
+    useEditStore.getState().setParam('toneCurve', {
+      ...useEditStore.getState().edits.toneCurve,
+      red: [
+        { x: 0, y: 0 },
+        { x: 0.5, y: 0.8 },
+        { x: 1, y: 1 },
+      ],
+    });
+
+    render(<ToneCurvePanel />);
+
+    // Switch to red channel
+    fireEvent.click(screen.getByText('Red'));
+
+    // Reset button should be visible
+    const resetButton = screen.getByText('Reset');
+    expect(resetButton).toBeInTheDocument();
+
+    // Click reset
+    fireEvent.click(resetButton);
+
+    // Curve should be back to default
+    const state = useEditStore.getState();
+    expect(state.edits.toneCurve.red).toEqual([
+      { x: 0, y: 0 },
+      { x: 1, y: 1 },
+    ]);
+  });
+
+  it('does not show reset button when channel is at default', () => {
+    render(<ToneCurvePanel />);
+    expect(screen.queryByText('Reset')).not.toBeInTheDocument();
+  });
+
   it('adds a point on click within the SVG area', () => {
     render(<ToneCurvePanel />);
     const svg = document.querySelector('svg');

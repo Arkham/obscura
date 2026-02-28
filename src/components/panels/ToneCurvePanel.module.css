@@ -25,6 +25,20 @@
   border-color: var(--text-secondary, #a0a0a0);
 }
 
+.resetButton {
+  padding: 4px 6px;
+  background: none;
+  border: none;
+  color: var(--text-secondary, #a0a0a0);
+  font-size: 10px;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.resetButton:hover {
+  color: var(--text-primary, #e0e0e0);
+}
+
 .curveContainer {
   position: relative;
   width: 100%;

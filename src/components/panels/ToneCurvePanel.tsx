@@ -21,6 +21,11 @@ const CHANNEL_COLORS: Record<Channel, string> = {
   blue: '#6666ff',
 };
 
+const DEFAULT_POINTS: CurvePoint[] = [
+  { x: 0, y: 0 },
+  { x: 1, y: 1 },
+];
+
 const SVG_SIZE = 256;
 const POINT_RADIUS = 6;
 const GRAB_RADIUS = 12;
@@ -177,6 +182,14 @@ export function ToneCurvePanel() {
     [getSvgCoords, findPointIndex, points, setPoints],
   );
 
+  const isModified =
+    points.length !== DEFAULT_POINTS.length ||
+    points.some((p, i) => p.x !== DEFAULT_POINTS[i].x || p.y !== DEFAULT_POINTS[i].y);
+
+  const handleReset = useCallback(() => {
+    setPoints(DEFAULT_POINTS);
+  }, [setPoints]);
+
   const sortedPoints = [...points].sort((a, b) => a.x - b.x);
   const pathD = buildCurvePath(sortedPoints);
   const color = CHANNEL_COLORS[channel];
@@ -195,6 +208,15 @@ export function ToneCurvePanel() {
             {CHANNEL_LABELS[ch]}
           </button>
         ))}
+        {isModified && (
+          <button
+            className={styles.resetButton}
+            onClick={handleReset}
+            type="button"
+          >
+            Reset
+          </button>
+        )}
       </div>
       <div className={styles.curveContainer}>
         <svg
