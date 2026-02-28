@@ -3,6 +3,7 @@ import { Canvas, type CanvasHandle } from './Canvas';
 import { CropOverlay } from './CropOverlay';
 import { ExportDialog } from './ExportDialog';
 import { HistoryPanel } from './HistoryPanel';
+import { PresetsPanel } from './PresetsPanel';
 import { BasicPanel } from '../panels/BasicPanel';
 import { PresencePanel } from '../panels/PresencePanel';
 import { ToneCurvePanel } from '../panels/ToneCurvePanel';
@@ -316,7 +317,12 @@ export function EditorView({ onBack }: EditorViewProps) {
       </AppHeader>
       <div className={styles.main}>
         <div className={styles.leftSidebar}>
-          <HistoryPanel />
+          <div className={styles.leftSidebarSection}>
+            <PresetsPanel />
+          </div>
+          <div className={styles.leftSidebarSection}>
+            <HistoryPanel />
+          </div>
         </div>
         <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
           <Canvas ref={canvasRef} cropMode={cropMode} onZoomChange={handleZoomChange} />

@@ -73,6 +73,17 @@
   flex-direction: column;
 }
 
+.leftSidebarSection {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border, #404040);
+}
+
+.leftSidebarSection:last-child {
+  border-bottom: none;
+}
+
 .sidebar {
   width: 280px;
   min-width: 280px;
