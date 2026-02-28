@@ -252,7 +252,8 @@ export const useEditStore = create<EditStoreState>((set, get) => ({
     const defaults = createDefaultEdits();
     // Deep merge: for each key in preset.edits, if both default and preset value
     // are plain objects (not arrays, not null), spread-merge them; otherwise use preset value.
-    const merged = { ...defaults };
+    // Preserve exposure from current edits — presets are about look, not exposure
+    const merged = { ...defaults, exposure: state.edits.exposure };
     for (const [key, value] of Object.entries(preset.edits)) {
       const k = key as keyof EditState;
       const defaultVal = defaults[k];

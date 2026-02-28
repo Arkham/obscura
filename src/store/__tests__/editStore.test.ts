@@ -62,8 +62,8 @@ describe('editStore', () => {
     // Preset values applied
     expect(state.edits.contrast).toBe(30);
     expect(state.edits.saturation).toBe(-20);
-    // Non-preset values reset to defaults (not preserved from prior edits)
-    expect(state.edits.exposure).toBe(0);
+    // Exposure is preserved from prior edits (presets don't change exposure)
+    expect(state.edits.exposure).toBe(2.0);
     // History entry created
     const lastEntry = state.history[state.historyIndex];
     expect(lastEntry.label).toBe('Preset: Test Preset');
